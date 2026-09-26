@@ -15,13 +15,13 @@ npm install
 npm run dev
 ```
 
-| Command              | What it does                     |
-| -------------------- | -------------------------------- |
-| `npm run dev`        | Start the dev server             |
+| Command              | What it does                       |
+| -------------------- | ---------------------------------- |
+| `npm run dev`        | Start the dev server               |
 | `npm run build`      | Typecheck and build for production |
-| `npm test`           | Run the test suite once          |
-| `npm run test:watch` | Run tests in watch mode          |
-| `npm run lint`       | Lint the project                 |
+| `npm test`           | Run the test suite once            |
+| `npm run test:watch` | Run tests in watch mode            |
+| `npm run lint`       | Lint the project                   |
 
 ---
 
@@ -51,7 +51,7 @@ and why.
 
 The brief requires mutations to return a consistent error shape:
 
-```ts
+```
 { error: { code, message } }
 ```
 
@@ -97,7 +97,7 @@ The brief treats product feel as part of the MVP, and durability is part of that
 also removes any ambiguity from the requirement that status and position "persist
 after drop".
 
-**How it is wired:** persistence is a *subscriber* to the store, not a step inside
+**How it is wired:** persistence is a _subscriber_ to the store, not a step inside
 each action. One watcher reacts to state changes and writes; the twenty-odd mutations
 know nothing about storage. The alternative — calling `save()` at the end of every
 action — means one forgotten call produces a bug where most changes persist and one
@@ -136,9 +136,9 @@ would become a UI hint only.
 The selected list lives in the URL (`/list/:listId`) instead of in Zustand.
 
 The deciding reason is a requirement that is otherwise impossible to demonstrate. The
-brief asks that *"attempting to open or mutate a denied resource shows a clear error"*.
+brief asks that _"attempting to open or mutate a denied resource shows a clear error"_.
 If a list can only be selected by clicking the sidebar, and the sidebar never shows
-Bob a list he cannot see, then Bob can never *attempt* to open one — so the 403 state
+Bob a list he cannot see, then Bob can never _attempt_ to open one — so the 403 state
 has no way to appear. With URLs, navigating directly to a forbidden list id renders a
 proper access-denied view.
 
@@ -159,7 +159,7 @@ rules. Every version of Tailwind requires one CSS entry point, so the rule canno
 "no CSS files"; it means no hand-written style rules, and there are none. All layout
 and theming is utility classes in TSX.
 
-**Why the token set is small:** the brief asks for a *small* token set and grades
+**Why the token set is small:** the brief asks for a _small_ token set and grades
 consistency rather than richness. Fourteen tokens total:
 
 - One brand colour, one page surface, one border colour
@@ -290,14 +290,14 @@ scattered across tasks. Views resolve the ids on read.
 
 ### Deviations from the brief's field tables
 
-| Added                  | Why                                                        |
-| ---------------------- | ---------------------------------------------------------- |
+| Added                  | Why                                                          |
+| ---------------------- | ------------------------------------------------------------ |
 | `Container.visibility` | Section 5 needs public vs private; section 1 never stores it |
-| `Container.archivedAt` | Section 1 asks for soft-delete/archive but not how          |
-| `Task.id`              | Omitted from their table                                    |
-| `Task.primaryListId`   | Named in the operations list, absent from the table         |
-| `Status.listId`        | "Each list owns a status set" — the link is never specified |
-| `User`                 | Described only in prose; the shape is ours                  |
+| `Container.archivedAt` | Section 1 asks for soft-delete/archive but not how           |
+| `Task.id`              | Omitted from their table                                     |
+| `Task.primaryListId`   | Named in the operations list, absent from the table          |
+| `Status.listId`        | "Each list owns a status set" — the link is never specified  |
+| `User`                 | Described only in prose; the shape is ours                   |
 
 `Task.status` is named **`statusId`**, because it holds a reference rather than a
 value — the brief itself says it must "map to" a status.
@@ -317,11 +317,11 @@ the other two lists, which is the visible proof that status sets are per-list
 rather than global. And **the grants give all three users a different view**, so
 the permission difference is obvious immediately:
 
-| User             | Sees                        | Why                                     |
-| ---------------- | --------------------------- | --------------------------------------- |
-| Alice (admin)    | Sprint 1, Bugs, Q3 Features | bypasses visibility and grants entirely |
-| Bob (member)     | Sprint 1                    | denied Bugs; Product is private         |
-| Carol (member)   | Bugs, Q3 Features           | denied Sprint 1; allowed into Product   |
+| User           | Sees                        | Why                                     |
+| -------------- | --------------------------- | --------------------------------------- |
+| Alice (admin)  | Sprint 1, Bugs, Q3 Features | bypasses visibility and grants entirely |
+| Bob (member)   | Sprint 1                    | denied Bugs; Product is private         |
+| Carol (member) | Bugs, Q3 Features           | denied Sprint 1; allowed into Product   |
 
 The fixtures also cover the UI states without any setup: every priority appears,
 three tasks are unassigned, two have several assignees, two are overdue, and the
@@ -340,14 +340,14 @@ _TODO — the resolution rule, with worked examples for Alice, Bob and Carol._
 
 ### Cut on purpose
 
-| Cut                     | Reasoning                                                                                                   |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **All stretch goals**   | The brief caps them at two and says to ship a working MVP over half-finished extras. Decided up front so the choice was not relitigated mid-build. |
-| **Subtasks**            | Explicitly "stretch within MVP". `parentTaskId` is not on the model.                                         |
-| **Status editing UI**   | The brief requires lists to _own_ status sets, not that users can edit them. Sets are seeded and fixed.       |
-| **Simulated pagination** | Explicitly optional, and paginating in-memory data adds complexity with no visible payoff at 16 tasks.       |
-| **`createdAt`/`updatedAt` on containers** | Only required on tasks.                                                                    |
-| **E2E tests**           | The brief says "component test **or** E2E". The component test covers the critical path for far less setup.  |
+| Cut                                       | Reasoning                                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **All stretch goals**                     | The brief caps them at two and says to ship a working MVP over half-finished extras. Decided up front so the choice was not relitigated mid-build. |
+| **Subtasks**                              | Explicitly "stretch within MVP". `parentTaskId` is not on the model.                                                                               |
+| **Status editing UI**                     | The brief requires lists to _own_ status sets, not that users can edit them. Sets are seeded and fixed.                                            |
+| **Simulated pagination**                  | Explicitly optional, and paginating in-memory data adds complexity with no visible payoff at 16 tasks.                                             |
+| **`createdAt`/`updatedAt` on containers** | Only required on tasks.                                                                                                                            |
+| **E2E tests**                             | The brief says "component test **or** E2E". The component test covers the critical path for far less setup.                                        |
 
 _TODO — week 2._
 

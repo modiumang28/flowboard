@@ -146,7 +146,9 @@ describe('fixtures cover the UI states', () => {
     expect(seedTasks.some((t) => t.assigneeIds.length === 0)).toBe(true)
     expect(seedTasks.some((t) => t.assigneeIds.length > 1)).toBe(true)
     expect(seedTasks.some((t) => t.dueDate === null)).toBe(true)
-    expect(seedTasks.some((t) => t.dueDate !== null && t.dueDate < '2026-09-26')).toBe(true)
+    expect(seedTasks.some((t) => t.dueDate !== null && t.dueDate < '2026-09-26')).toBe(
+      true,
+    )
   })
 
   it('leaves at least one status column empty', () => {
