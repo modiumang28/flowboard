@@ -1,11 +1,29 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { seedContainers } from './data/seed'
+import { Sidebar } from './features/sidebar/Sidebar'
 
-function Placeholder({ label }: { label: string }) {
+function ListView() {
+  const { listId } = useParams()
+  const list = seedContainers.find((c) => c.id === listId && c.type === 'list')
+
+  if (!list) {
+    return <Empty title="List not found" body={`No list with the id "${listId}".`} />
+  }
+
   return (
-    <div className="grid min-h-screen place-items-center bg-page font-sans">
-      <div className="rounded-panel border border-line bg-white px-8 py-6 shadow-card">
-        <p className="text-sm font-medium text-slate-900">Flowboard</p>
-        <p className="mt-1 text-sm text-slate-500">{label}</p>
+    <div className="p-6">
+      <h1 className="text-lg font-semibold text-slate-900">{list.name}</h1>
+      <p className="mt-1 text-sm text-slate-500">Board and list views arrive next.</p>
+    </div>
+  )
+}
+
+function Empty({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="grid h-full place-items-center p-8">
+      <div className="max-w-sm text-center">
+        <p className="text-sm font-medium text-slate-900">{title}</p>
+        <p className="mt-1 text-sm text-slate-500">{body}</p>
       </div>
     </div>
   )
@@ -13,11 +31,27 @@ function Placeholder({ label }: { label: string }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/list" replace />} />
-      <Route path="/list" element={<Placeholder label="No list selected" />} />
-      <Route path="/list/:listId" element={<Placeholder label="List view" />} />
-      <Route path="*" element={<Placeholder label="Not found" />} />
-    </Routes>
+    <div className="flex h-screen bg-page font-sans text-slate-900 antialiased">
+      <Sidebar />
+      <main className="min-w-0 flex-1 overflow-hidden">
+        <Routes>
+          <Route path="/" element={<Navigate to="/list" replace />} />
+          <Route
+            path="/list"
+            element={
+              <Empty
+                title="No list selected"
+                body="Pick a list from the sidebar to get started."
+              />
+            }
+          />
+          <Route path="/list/:listId" element={<ListView />} />
+          <Route
+            path="*"
+            element={<Empty title="Page not found" body="That URL does not exist." />}
+          />
+        </Routes>
+      </main>
+    </div>
   )
 }
