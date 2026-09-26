@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+/*
+  Design tokens. This is Tailwind v4 configuration, not styling — there are no
+  style rules in this file and none anywhere else in the project. All layout and
+  theming is done with utility classes in TSX.
+
+  The set is deliberately small. Priority colours and status colours share the
+  same five accents, and each accent is used for both text and its badge
+  background via an opacity modifier (text-accent-red + bg-accent-red/10).
+*/
+@theme {
+  /* Brand — selection, primary actions, focus rings */
+  --color-brand: #4f46e5;
+
+  /* Surfaces and lines */
+  --color-page: #f8fafc;
+  --color-line: #e2e8f0;
+
+  /* Shared accents: priority levels AND status categories both map to these */
+  --color-accent-red: #dc2626;
+  --color-accent-amber: #d97706;
+  --color-accent-blue: #2563eb;
+  --color-accent-green: #16a34a;
+  --color-accent-slate: #64748b;
+
+  /* Type */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Radii */
+  --radius-card: 0.375rem;
+  --radius-panel: 0.75rem;
+
+  /* Elevation. `drag` is intentionally the strongest — it is what makes a
+     dragged card read as picked up, which the brief requires. */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 4px 12px rgb(16 24 40 / 0.1);
+  --shadow-drag: 0 12px 28px rgb(16 24 40 / 0.18);
+}
