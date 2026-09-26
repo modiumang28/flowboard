@@ -1,19 +1,16 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMatch } from 'react-router-dom'
-import { seedContainers } from '../../data/seed'
+import { useStore } from '../../store/store'
 import { buildTree, collectIds } from '../../store/tree'
 import { TreeNodeRow } from './TreeNodeRow'
 
 /*
-  Reads the seed directly for now. Phase 3 swaps this for a permission-filtered
-  selector off the store; the component itself will not change.
-
   The selection comes from useMatch rather than useParams: the sidebar renders
   outside <Routes>, so it has no matched route of its own to read params from.
 */
 export function Sidebar() {
-  const tree = buildTree(seedContainers)
-  console.log('tree', tree)
+  const containers = useStore((state) => state.containers)
+  const tree = useMemo(() => buildTree(Object.values(containers)), [containers])
   const selectedListId = useMatch('/list/:listId')?.params.listId ?? null
 
   const [expanded, setExpanded] = useState<Set<string>>(

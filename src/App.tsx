@@ -1,15 +1,21 @@
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { seedContainers } from './data/seed'
 import { Board } from './features/board/Board'
 import { Sidebar } from './features/sidebar/Sidebar'
+import { TaskDrawer } from './features/task/TaskDrawer'
 
 function ListView() {
   const { listId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const list = seedContainers.find((c) => c.id === listId && c.type === 'list')
 
   if (!list) {
     return <Empty title="List not found" body={`No list with the id "${listId}".`} />
   }
+
+  // The open task lives in the URL, so the back button closes the drawer and
+  // a link to a task can be shared.
+  const openTaskId = searchParams.get('task')
 
   return (
     <div className="flex h-full flex-col">
@@ -19,6 +25,7 @@ function ListView() {
       <div className="min-h-0 flex-1">
         <Board listId={list.id} />
       </div>
+      <TaskDrawer taskId={openTaskId} onClose={() => setSearchParams({})} />
     </div>
   )
 }

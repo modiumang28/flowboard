@@ -1,6 +1,11 @@
-import { render, screen, within } from '@testing-library/react'
+import { render as rtlRender, screen, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { Board } from './Board'
+
+// Cards read and write the ?task= param, so they need a router around them.
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 describe('Board', () => {
   it('renders the columns belonging to the selected list', () => {
