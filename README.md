@@ -236,7 +236,101 @@ _TODO — diagram of components and store._
 
 ## Data model
 
-_TODO — the five entities and how they relate._
+Five entities, all stored flat as `Record<id, Entity>` maps. See `src/types/`.
+
+```
+Container ─ parentId ──► Container        workspace → space → folder → list
+Status    ─ listId ────► Container        each list owns its own status set
+Task      ─ primaryListId ──► Container   the list it lives in
+          ─ statusId ──────► Status       must belong to primaryListId
+          ─ assigneeIds ───► User[]
+Grant     ─ resourceId ──► Container      a space, folder or list
+          ─ userId ──────► User
+```
+
+### Containers are one shape, not four
+
+Workspace, space, folder and list share a single `Container` interface with a
+`type` discriminator, because they share every field. Nesting is constrained by
+`VALID_PARENT_TYPE`, enforced on create and move. Lists are the leaves of the
+container tree — they hold tasks, never other containers.
+
+### Tasks are not tree nodes
+
+Containers point at containers via `parentId`; a task points at its list via
+`primaryListId`. The names are deliberately different so that tree-walking code
+cannot accidentally recurse into tasks.
+
+### Statuses are owned per list, and `category` is why that works
+
+Each list has its own status objects — Bugs uses _Open / Triaging / Fixed_ while
+Sprint 1 uses _To Do / In Progress / Done_. Nothing is shared between lists.
+
+`name` is what a person reads; `category` (`todo` | `active` | `done`) is what
+the code reads. The names differ per list but the three meanings do not, so
+`category` is the only thing that can connect a status in one list to its
+equivalent in another.
+
+That matters when a task moves between lists. Its old `statusId` points at a
+status the destination board never renders, so the task would silently vanish.
+The move therefore resolves a new status by matching `category`, and changes
+`primaryListId` and `statusId` together — they are two halves of one fact.
+
+### References, not copies
+
+A task stores `statusId`, not the status; `assigneeIds`, not the people. Each
+fact is written down once, so a renamed column or user cannot leave stale copies
+scattered across tasks. Views resolve the ids on read.
+
+### Two invariants the store protects
+
+1. A task's `statusId` must point at a `Status` whose `listId` equals the task's
+   `primaryListId`.
+2. A container's `parentId` must satisfy `VALID_PARENT_TYPE`.
+
+### Deviations from the brief's field tables
+
+| Added                  | Why                                                        |
+| ---------------------- | ---------------------------------------------------------- |
+| `Container.visibility` | Section 5 needs public vs private; section 1 never stores it |
+| `Container.archivedAt` | Section 1 asks for soft-delete/archive but not how          |
+| `Task.id`              | Omitted from their table                                    |
+| `Task.primaryListId`   | Named in the operations list, absent from the table         |
+| `Status.listId`        | "Each list owns a status set" — the link is never specified |
+| `User`                 | Described only in prose; the shape is ours                  |
+
+`Task.status` is named **`statusId`**, because it holds a reference rather than a
+value — the brief itself says it must "map to" a status.
+
+### Ids
+
+Seed entities use readable ids (`list-bugs`, `status-bugs-triaging`) so tests and
+debugging stay legible. Anything created at runtime uses `crypto.randomUUID()`.
+
+### Seed fixtures
+
+`src/data/seed.ts` builds 1 workspace, 2 spaces, 2 folders, 3 lists, 16 tasks,
+3 users and 3 grants.
+
+Two things are arranged deliberately. **Bugs uses a different status set** from
+the other two lists, which is the visible proof that status sets are per-list
+rather than global. And **the grants give all three users a different view**, so
+the permission difference is obvious immediately:
+
+| User             | Sees                        | Why                                     |
+| ---------------- | --------------------------- | --------------------------------------- |
+| Alice (admin)    | Sprint 1, Bugs, Q3 Features | bypasses visibility and grants entirely |
+| Bob (member)     | Sprint 1                    | denied Bugs; Product is private         |
+| Carol (member)   | Bugs, Q3 Features           | denied Sprint 1; allowed into Product   |
+
+The fixtures also cover the UI states without any setup: every priority appears,
+three tasks are unassigned, two have several assignees, two are overdue, and the
+Q3 "Done" column is empty so the empty-column state shows on first load.
+
+`src/data/seed.test.ts` asserts the fixtures are internally consistent — parent
+types, status ownership, dangling ids, duplicate positions. These are not the
+permission tests the brief asks for; they exist so a mistyped id fails loudly
+here rather than as a blank column three phases later.
 
 ## How permissions are enforced
 
@@ -244,7 +338,18 @@ _TODO — the resolution rule, with worked examples for Alice, Bob and Carol._
 
 ## Trade-offs and what I would do next
 
-_TODO._
+### Cut on purpose
+
+| Cut                     | Reasoning                                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **All stretch goals**   | The brief caps them at two and says to ship a working MVP over half-finished extras. Decided up front so the choice was not relitigated mid-build. |
+| **Subtasks**            | Explicitly "stretch within MVP". `parentTaskId` is not on the model.                                         |
+| **Status editing UI**   | The brief requires lists to _own_ status sets, not that users can edit them. Sets are seeded and fixed.       |
+| **Simulated pagination** | Explicitly optional, and paginating in-memory data adds complexity with no visible payoff at 16 tasks.       |
+| **`createdAt`/`updatedAt` on containers** | Only required on tasks.                                                                    |
+| **E2E tests**           | The brief says "component test **or** E2E". The component test covers the critical path for far less setup.  |
+
+_TODO — week 2._
 
 ## AI usage
 
