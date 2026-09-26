@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { seedContainers } from './data/seed'
+import { Board } from './features/board/Board'
 import { Sidebar } from './features/sidebar/Sidebar'
 
 function ListView() {
@@ -11,9 +12,13 @@ function ListView() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-lg font-semibold text-slate-900">{list.name}</h1>
-      <p className="mt-1 text-sm text-slate-500">Board and list views arrive next.</p>
+    <div className="flex h-full flex-col">
+      <header className="shrink-0 px-6 py-5">
+        <h1 className="text-lg font-semibold text-slate-900">{list.name}</h1>
+      </header>
+      <div className="min-h-0 flex-1">
+        <Board listId={list.id} />
+      </div>
     </div>
   )
 }
