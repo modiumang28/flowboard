@@ -145,12 +145,15 @@ export function TreeNodeRow(props: Props) {
                     </button>
                   </MenuItem>
                   <MenuItem>
+                    {/* Labelled "Delete" because that is what users expect to
+                        look for, but it archives: a soft delete that keeps the
+                        record and its tasks, so nothing is lost. */}
                     <button
                       type="button"
                       onClick={() => props.onArchive(container.id)}
                       className="w-full rounded px-2 py-1.5 text-left text-sm text-accent-red data-focus:bg-accent-red/10"
                     >
-                      Archive
+                      Delete
                     </button>
                   </MenuItem>
                 </MenuItems>

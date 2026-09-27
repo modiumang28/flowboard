@@ -165,12 +165,12 @@ describe('Sidebar — renaming', () => {
 })
 
 describe('Sidebar — archiving', () => {
-  it('removes an archived list from the tree', async () => {
+  it('"Delete" archives a list, removing it from the tree', async () => {
     const user = userEvent.setup()
     renderSidebar()
 
     await user.click(screen.getByRole('button', { name: 'Actions for Bugs' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
 
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Bugs' })).not.toBeInTheDocument(),
@@ -184,7 +184,7 @@ describe('Sidebar — archiving', () => {
     renderSidebar()
 
     await user.click(screen.getByRole('button', { name: 'Actions for Product' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
 
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Product' })).not.toBeInTheDocument(),
