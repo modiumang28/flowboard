@@ -89,7 +89,8 @@ export function Sidebar() {
       aria-label="Workspace"
       className="flex w-64 shrink-0 flex-col border-r border-line bg-white"
     >
-      <div className="border-b border-line px-4 py-3">
+      {/* Matches the top bar's height so the two headers line up. */}
+      <div className="flex h-14 shrink-0 items-center border-b border-line px-4">
         <p className="text-sm font-semibold text-slate-900">Flowboard</p>
       </div>
 

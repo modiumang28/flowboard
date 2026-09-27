@@ -1,16 +1,17 @@
 import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
-import { seedContainers } from './data/seed'
 import { Board } from './features/board/Board'
 import { Sidebar } from './features/sidebar/Sidebar'
+import { TopBar } from './features/shell/TopBar'
 import { TaskDrawer } from './features/task/TaskDrawer'
+import { useStore } from './store/store'
 
 function ListView() {
   const { listId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const list = seedContainers.find((c) => c.id === listId && c.type === 'list')
+  const list = useStore((state) => (listId ? state.containers[listId] : undefined))
 
-  if (!list) {
-    return <Empty title="List not found" body={`No list with the id "${listId}".`} />
+  if (!list || list.type !== 'list' || list.archivedAt !== null) {
+    return <Empty title="List not found" body={`No list with the id “${listId}”.`} />
   }
 
   // The open task lives in the URL, so the back button closes the drawer and
@@ -18,15 +19,10 @@ function ListView() {
   const openTaskId = searchParams.get('task')
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="shrink-0 px-6 py-5">
-        <h1 className="text-lg font-semibold text-slate-900">{list.name}</h1>
-      </header>
-      <div className="min-h-0 flex-1">
-        <Board listId={list.id} />
-      </div>
+    <>
+      <Board listId={list.id} />
       <TaskDrawer taskId={openTaskId} onClose={() => setSearchParams({})} />
-    </div>
+    </>
   )
 }
 
@@ -45,25 +41,31 @@ export default function App() {
   return (
     <div className="flex h-screen bg-page font-sans text-slate-900 antialiased">
       <Sidebar />
-      <main className="min-w-0 flex-1 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<Navigate to="/list" replace />} />
-          <Route
-            path="/list"
-            element={
-              <Empty
-                title="No list selected"
-                body="Pick a list from the sidebar to get started."
-              />
-            }
-          />
-          <Route path="/list/:listId" element={<ListView />} />
-          <Route
-            path="*"
-            element={<Empty title="Page not found" body="That URL does not exist." />}
-          />
-        </Routes>
-      </main>
+
+      {/* Top bar spans the main area only, so the sidebar reads as its own
+          column rather than being cut across by the header. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar />
+        <main className="min-h-0 flex-1 overflow-hidden pt-4">
+          <Routes>
+            <Route path="/" element={<Navigate to="/list" replace />} />
+            <Route
+              path="/list"
+              element={
+                <Empty
+                  title="No list selected"
+                  body="Pick a list from the sidebar to get started."
+                />
+              }
+            />
+            <Route path="/list/:listId" element={<ListView />} />
+            <Route
+              path="*"
+              element={<Empty title="Page not found" body="That URL does not exist." />}
+            />
+          </Routes>
+        </main>
+      </div>
     </div>
   )
 }

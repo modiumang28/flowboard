@@ -52,3 +52,22 @@ export function buildTree(containers: Container[]): TreeNode | null {
 export function collectIds(node: TreeNode): string[] {
   return [node.container.id, ...node.children.flatMap(collectIds)]
 }
+
+/**
+ * The path from the workspace down to a container, inclusive — the breadcrumb.
+ * Returns an empty array when the id is unknown.
+ */
+export function ancestorsOf(
+  containers: Record<string, Container>,
+  containerId: string,
+): Container[] {
+  const path: Container[] = []
+  let current: Container | undefined = containers[containerId]
+
+  while (current) {
+    path.unshift(current)
+    current = current.parentId ? containers[current.parentId] : undefined
+  }
+
+  return path
+}
