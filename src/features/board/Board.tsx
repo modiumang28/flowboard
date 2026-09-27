@@ -12,6 +12,7 @@ import {
 import { useMemo, useState } from 'react'
 import { buildBoard, type BoardColumnData } from '../../store/board'
 import { useStore } from '../../store/store'
+import { notifyOnError } from '../../store/toasts'
 import { BoardColumn } from './BoardColumn'
 import { TaskCard } from './TaskCard'
 
@@ -70,12 +71,20 @@ export function Board({ listId }: { listId: string }) {
     )
     if (!target || !source) return
 
+    /*
+      A drop has nowhere to show an inline error once the pointer is released,
+      so failures go to a toast. Nothing can fail here yet — the board only
+      ever passes ids it just rendered — but the store's contract is that every
+      mutation returns a Result, and this is the one place that was discarding
+      one. It becomes reachable as soon as a permission check or a real backend
+      can say no.
+    */
     if (source.status.id === target.column.status.id) {
       if (active.id === over.id) return
-      reorderTask(taskId, target.index)
+      notifyOnError(reorderTask(taskId, target.index))
     } else {
       // Across columns, the gesture means "change status".
-      moveTaskToStatus(taskId, target.column.status.id, target.index)
+      notifyOnError(moveTaskToStatus(taskId, target.column.status.id, target.index))
     }
   }
 

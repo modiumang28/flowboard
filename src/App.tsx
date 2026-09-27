@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
+import { Toaster } from './components/Toaster'
 import { Board } from './features/board/Board'
 import { TaskTable } from './features/list/TaskTable'
 import { Sidebar } from './features/sidebar/Sidebar'
@@ -44,6 +45,8 @@ function Empty({ title, body }: { title: string; body: string }) {
         <p className="text-sm font-medium text-slate-900">{title}</p>
         <p className="mt-1 text-sm text-slate-500">{body}</p>
       </div>
+
+      <Toaster />
     </div>
   )
 }
@@ -77,6 +80,8 @@ export default function App() {
           </Routes>
         </main>
       </div>
+
+      <Toaster />
     </div>
   )
 }
