@@ -110,27 +110,40 @@ export function CreateTaskDialog({ listId, onClose }: Props) {
           )}
 
           <div className="flex flex-col gap-3 px-5 py-4">
-            <input
-              autoFocus
-              aria-label="Title"
-              required
-              value={title}
-              placeholder="What needs doing?"
-              onChange={(event) => setTitle(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') submit()
-              }}
-              className={`${INPUT} text-base font-medium`}
-            />
+            {/* The asterisk is visual only; `required` already tells assistive
+                tech, and aria-label keeps the field's name a plain "Title". */}
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">
+                Title{' '}
+                <span aria-hidden="true" className="text-accent-red">
+                  *
+                </span>
+              </span>
+              <input
+                autoFocus
+                aria-label="Title"
+                required
+                value={title}
+                placeholder="What needs doing?"
+                onChange={(event) => setTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') submit()
+                }}
+                className={`${INPUT} text-base font-medium`}
+              />
+            </label>
 
-            <textarea
-              rows={3}
-              aria-label="Description"
-              value={description}
-              placeholder="Add more detail…"
-              onChange={(event) => setDescription(event.target.value)}
-              className={`${INPUT} resize-y`}
-            />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">Description</span>
+              <textarea
+                rows={3}
+                aria-label="Description"
+                value={description}
+                placeholder="Add more detail…"
+                onChange={(event) => setDescription(event.target.value)}
+                className={`${INPUT} resize-y`}
+              />
+            </label>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
