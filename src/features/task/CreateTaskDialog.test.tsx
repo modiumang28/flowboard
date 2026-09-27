@@ -166,16 +166,52 @@ describe('Creating a task', () => {
 })
 
 describe('Create — refusing and cancelling', () => {
-  it('refuses an empty title and stays open', async () => {
+  it('keeps Create disabled until a title is typed', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs')
+    await openCreate(user)
+
+    const create = within(dialog()).getByRole('button', { name: 'Create' })
+    expect(create).toBeDisabled()
+
+    await user.type(within(dialog()).getByLabelText('Title'), 'Something')
+    expect(create).toBeEnabled()
+  })
+
+  it('treats a whitespace-only title as empty', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs')
+    await openCreate(user)
+
+    await user.type(within(dialog()).getByLabelText('Title'), '   ')
+
+    expect(within(dialog()).getByRole('button', { name: 'Create' })).toBeDisabled()
+  })
+
+  it('creates nothing when Enter is pressed on an empty title', async () => {
     const user = userEvent.setup()
     const before = Object.keys(useStore.getState().tasks).length
     renderApp('/list/list-bugs')
     await openCreate(user)
 
-    await user.click(within(dialog()).getByRole('button', { name: 'Create' }))
+    await user.type(within(dialog()).getByLabelText('Title'), '{Enter}')
 
-    expect(within(dialog()).getByRole('alert')).toHaveTextContent('A task needs a title')
     expect(Object.keys(useStore.getState().tasks)).toHaveLength(before)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('leaves every other field optional', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs')
+    await openCreate(user)
+
+    // Title alone is enough — no description, assignee, priority or due date.
+    await user.type(within(dialog()).getByLabelText('Title'), 'Bare minimum{Enter}')
+
+    const created = Object.values(useStore.getState().tasks).find(
+      (t) => t.title === 'Bare minimum',
+    )
+    expect(created).toBeDefined()
   })
 
   it('creates nothing on Cancel', async () => {

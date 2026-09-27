@@ -56,7 +56,16 @@ export function CreateTaskDialog({ listId, onClose }: Props) {
   const [dueDate, setDueDate] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  /*
+    Title is the only thing a person must supply — the brief marks every other
+    field optional, and the status is preselected. Create stays disabled until
+    it has content, so the form says what is missing rather than reporting it
+    after the fact. The store validates regardless; the UI is not the guard.
+  */
+  const canCreate = title.trim().length > 0
+
   const submit = () => {
+    if (!canCreate) return
     const result = createTask(listId, {
       title,
       statusId: statusId || fallbackStatusId,
@@ -104,6 +113,7 @@ export function CreateTaskDialog({ listId, onClose }: Props) {
             <input
               autoFocus
               aria-label="Title"
+              required
               value={title}
               placeholder="What needs doing?"
               onChange={(event) => setTitle(event.target.value)}
@@ -208,7 +218,8 @@ export function CreateTaskDialog({ listId, onClose }: Props) {
             <button
               type="button"
               onClick={submit}
-              className="cursor-pointer rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+              disabled={!canCreate}
+              className="cursor-pointer rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
             >
               Create
             </button>
