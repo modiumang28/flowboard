@@ -5,14 +5,22 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { ChevronRight, Folder, Layers, List, MoreHorizontal, Plus } from 'lucide-react'
+import {
+  Briefcase,
+  ChevronRight,
+  Folder,
+  Layers,
+  List,
+  MoreHorizontal,
+  Plus,
+} from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { TreeNode } from '../../store/tree'
 import { CHILD_TYPE, type ContainerType } from '../../types'
 
 const ICON: Record<ContainerType, typeof Folder> = {
-  workspace: Layers,
+  workspace: Briefcase,
   space: Layers,
   folder: Folder,
   list: List,
