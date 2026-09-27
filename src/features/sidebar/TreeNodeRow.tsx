@@ -58,7 +58,7 @@ export function TreeNodeRow(props: Props) {
   }, [isEditing])
 
   const action =
-    'shrink-0 rounded p-1 text-slate-400 opacity-0 transition group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-slate-200/70 hover:text-slate-600 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand'
+    'shrink-0 cursor-pointer rounded p-1 text-slate-400 opacity-0 transition group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-slate-200/70 hover:text-slate-600 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand'
 
   return (
     <li>
@@ -69,7 +69,7 @@ export function TreeNodeRow(props: Props) {
           aria-label={isOpen ? `Collapse ${container.name}` : `Expand ${container.name}`}
           aria-expanded={hasChildren ? isOpen : undefined}
           disabled={!hasChildren}
-          className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:invisible"
+          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:invisible"
         >
           <ChevronRight
             size={14}
@@ -98,7 +98,7 @@ export function TreeNodeRow(props: Props) {
                 isList ? navigate(`/list/${container.id}`) : onToggle(container.id)
               }
               aria-current={isSelected ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 items-center gap-2 rounded-card px-1.5 py-1.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
+              className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-card px-1.5 py-1.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
                 isSelected
                   ? 'bg-brand/10 font-medium text-brand'
                   : 'text-slate-700 hover:bg-slate-200/60'
@@ -139,7 +139,7 @@ export function TreeNodeRow(props: Props) {
                     <button
                       type="button"
                       onClick={() => props.onStartRename(container.id, container.name)}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 data-focus:bg-slate-100"
+                      className="w-full cursor-pointer rounded px-2 py-1.5 text-left text-sm text-slate-700 data-focus:bg-slate-100"
                     >
                       Rename
                     </button>
@@ -151,7 +151,7 @@ export function TreeNodeRow(props: Props) {
                     <button
                       type="button"
                       onClick={() => props.onArchive(container.id)}
-                      className="w-full rounded px-2 py-1.5 text-left text-sm text-accent-red data-focus:bg-accent-red/10"
+                      className="w-full cursor-pointer rounded px-2 py-1.5 text-left text-sm text-accent-red data-focus:bg-accent-red/10"
                     >
                       Delete
                     </button>

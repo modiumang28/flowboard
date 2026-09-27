@@ -24,7 +24,7 @@ export function UserSwitcher() {
     <Menu>
       <MenuButton
         aria-label={`Current user: ${current.name}. Switch user`}
-        className="flex items-center gap-2 rounded-card py-1 pr-1.5 pl-1 text-sm transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand data-open:bg-slate-100"
+        className="flex cursor-pointer items-center gap-2 rounded-card py-1 pr-1.5 pl-1 text-sm transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand data-open:bg-slate-100"
       >
         <Avatar user={current} />
         <span className="font-medium text-slate-700">{current.name}</span>
@@ -44,7 +44,7 @@ export function UserSwitcher() {
               <button
                 type="button"
                 onClick={() => setCurrentUser(user.id)}
-                className="flex w-full items-center gap-2.5 rounded-card px-2 py-2 text-left transition data-focus:bg-slate-100"
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-card px-2 py-2 text-left transition data-focus:bg-slate-100"
               >
                 <Avatar user={user} />
                 <span className="min-w-0 flex-1">

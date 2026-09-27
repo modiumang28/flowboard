@@ -55,7 +55,9 @@ export function TaskCard({ task, users, variant = 'default' }: Props) {
         onClick={() => setSearchParams({ task: task.id })}
         className="w-full cursor-pointer p-3 text-left focus:outline-none"
       >
-        <h3 className="text-sm leading-snug font-medium text-slate-900">{task.title}</h3>
+        <h3 className="text-sm leading-snug font-medium break-words text-slate-900">
+          {task.title}
+        </h3>
 
         {hasFooter && (
           <div className="mt-2.5 flex items-center gap-2">

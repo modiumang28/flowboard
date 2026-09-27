@@ -30,7 +30,7 @@ export function Select<T extends string>({ label, value, options, onChange }: Pr
     <Listbox value={value} onChange={onChange}>
       <ListboxButton
         aria-label={label}
-        className="flex w-full items-center justify-between gap-2 rounded-card border border-line bg-white px-2 py-1.5 text-left text-sm text-slate-800 transition hover:border-slate-300 focus:border-brand focus:outline-none data-open:border-brand"
+        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-card border border-line bg-white px-2 py-1.5 text-left text-sm text-slate-800 transition hover:border-slate-300 focus:border-brand focus:outline-none data-open:border-brand"
       >
         <span className="truncate">{selected?.label ?? '—'}</span>
         <ChevronDown size={14} className="shrink-0 text-slate-400" />

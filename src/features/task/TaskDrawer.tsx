@@ -194,7 +194,7 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="shrink-0 rounded-card p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          className="shrink-0 cursor-pointer rounded-card p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
         >
           <X size={16} />
         </button>
@@ -252,7 +252,7 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
                               : [...draft.assigneeIds, user.id],
                           })
                         }
-                        className="size-3.5 accent-brand"
+                        className="size-3.5 cursor-pointer accent-brand"
                       />
                       <Avatar user={user} />
                       <span className="text-sm">{user.name}</span>
@@ -334,7 +334,7 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
             discard()
             onClose()
           }}
-          className="rounded-card border border-line px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          className="cursor-pointer rounded-card border border-line px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
         >
           Cancel
         </button>
@@ -342,7 +342,7 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
           type="button"
           onClick={save}
           disabled={!isDirty}
-          className="rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
         >
           Save
         </button>
