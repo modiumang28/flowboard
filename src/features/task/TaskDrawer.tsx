@@ -1,6 +1,6 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react'
 import { X } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { Select } from '../../components/Select'
 import { PRIORITY_LABEL } from '../../lib/accents'
@@ -117,6 +117,10 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
   // opening a different task starts a fresh draft without an effect.
   const [draft, setDraft] = useState<Draft>(() => draftFrom(task))
   const [error, setError] = useState<string | null>(null)
+  // Shown under the title itself rather than in the banner, since it is about
+  // that one field and the fix is to type there.
+  const [titleError, setTitleError] = useState<string | null>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
   const listChanged = draft.primaryListId !== task.primaryListId
@@ -158,6 +162,13 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
     status meaningful there.
   */
   const save = () => {
+    // Checked before anything runs, so a blank title never half-saves a move.
+    if (draft.title.trim() === '') {
+      setTitleError('Title is required.')
+      titleRef.current?.focus()
+      return
+    }
+
     if (listChanged) {
       const moved = moveTaskToList(task.id, draft.primaryListId)
       if (isError(moved)) {
@@ -189,6 +200,7 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
   const discard = () => {
     setDraft(draftFrom(task))
     setError(null)
+    setTitleError(null)
   }
 
   return (
@@ -198,11 +210,32 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
           <p className="text-xs text-slate-500">{containers[task.primaryListId]?.name}</p>
           <DialogTitle className="sr-only">{task.title}</DialogTitle>
           <input
+            ref={titleRef}
             aria-label="Title"
+            aria-invalid={titleError ? true : undefined}
+            aria-describedby={titleError ? 'task-title-error' : undefined}
             value={draft.title}
-            onChange={(event) => patch({ title: event.target.value })}
-            className="-mx-1.5 mt-0.5 w-full rounded-card px-1.5 py-0.5 text-base leading-snug font-semibold text-slate-900 transition hover:bg-slate-100 focus:bg-white focus:outline-2 focus:outline-brand"
+            onChange={(event) => {
+              patch({ title: event.target.value })
+              if (event.target.value.trim() !== '') setTitleError(null)
+            }}
+            // The negative margin matches the padding, so the text still lines
+            // up with the list name above it.
+            className={`-mx-2.5 mt-1 w-full rounded-card px-2.5 py-1.5 text-base leading-snug font-semibold text-slate-900 transition ${
+              titleError
+                ? 'bg-white outline-2 outline-accent-red'
+                : 'hover:bg-slate-100 focus:bg-white focus:outline-2 focus:outline-brand'
+            }`}
           />
+          {titleError && (
+            <p
+              id="task-title-error"
+              role="alert"
+              className="mt-1.5 text-xs text-accent-red"
+            >
+              {titleError}
+            </p>
+          )}
         </div>
         <button
           type="button"

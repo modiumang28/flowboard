@@ -179,9 +179,48 @@ describe('TaskDrawer — validation', () => {
     await user.clear(within(drawer()).getByLabelText('Title'))
     await user.click(saveButton())
 
-    expect(within(drawer()).getByRole('alert')).toHaveTextContent('A task needs a title')
+    expect(within(drawer()).getByRole('alert')).toHaveTextContent('Title is required')
     expect(task('task-fix-crash').title).toBe('Fix crash on checkout')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('shows the required error under the title and puts focus back in it', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs?task=task-fix-crash')
+    const title = within(drawer()).getByLabelText('Title')
+
+    await user.clear(title)
+    await user.click(saveButton())
+
+    expect(title).toHaveFocus()
+    expect(title).toHaveAttribute('aria-invalid', 'true')
+    expect(title).toHaveAccessibleDescription('Title is required.')
+  })
+
+  it('treats a title of only spaces as empty', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs?task=task-fix-crash')
+    const title = within(drawer()).getByLabelText('Title')
+
+    await user.clear(title)
+    await user.type(title, '   ')
+    await user.click(saveButton())
+
+    expect(within(drawer()).getByRole('alert')).toHaveTextContent('Title is required')
+    expect(task('task-fix-crash').title).toBe('Fix crash on checkout')
+  })
+
+  it('clears the required error once a title is typed', async () => {
+    const user = userEvent.setup()
+    renderApp('/list/list-bugs?task=task-fix-crash')
+    const title = within(drawer()).getByLabelText('Title')
+
+    await user.clear(title)
+    await user.click(saveButton())
+    await user.type(title, 'Fix it')
+
+    expect(within(drawer()).queryByRole('alert')).not.toBeInTheDocument()
+    expect(title).not.toHaveAttribute('aria-invalid')
   })
 })
 
