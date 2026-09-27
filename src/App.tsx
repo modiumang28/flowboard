@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { Board } from './features/board/Board'
+import { TaskTable } from './features/list/TaskTable'
 import { Sidebar } from './features/sidebar/Sidebar'
 import { TopBar } from './features/shell/TopBar'
+import { useViewMode } from './features/shell/useViewMode'
 import { TaskDrawer } from './features/task/TaskDrawer'
 import { useStore } from './store/store'
 
@@ -9,6 +11,7 @@ function ListView() {
   const { listId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const list = useStore((state) => (listId ? state.containers[listId] : undefined))
+  const view = useViewMode()
 
   if (!list || list.type !== 'list' || list.archivedAt !== null) {
     return <Empty title="List not found" body={`No list with the id “${listId}”.`} />
@@ -18,10 +21,18 @@ function ListView() {
   // a link to a task can be shared.
   const openTaskId = searchParams.get('task')
 
+  // Drop only the task param — the chosen view and sort must survive.
+  const closeDrawer = () =>
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('task')
+      return next
+    })
+
   return (
     <>
-      <Board listId={list.id} />
-      <TaskDrawer taskId={openTaskId} onClose={() => setSearchParams({})} />
+      {view === 'list' ? <TaskTable listId={list.id} /> : <Board listId={list.id} />}
+      <TaskDrawer taskId={openTaskId} onClose={closeDrawer} />
     </>
   )
 }

@@ -4,6 +4,7 @@ import { useMatch } from 'react-router-dom'
 import { useStore } from '../../store/store'
 import { ancestorsOf } from '../../store/tree'
 import { UserSwitcher } from './UserSwitcher'
+import { ViewToggle } from './ViewToggle'
 
 /*
   The app chrome the brief asks for: sidebar + top bar + main content. The
@@ -47,6 +48,9 @@ export function TopBar() {
           <p className="text-sm text-slate-400">No list selected</p>
         )}
       </nav>
+
+      {/* Only meaningful once a list is open. */}
+      {listId && <ViewToggle />}
 
       <UserSwitcher />
     </header>

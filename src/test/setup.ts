@@ -7,3 +7,8 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
+
+// jsdom also has no Web Animations API. Headless UI polyfills it and warns on
+// every transition; returning no running animations makes transitions resolve
+// immediately, which is what tests want anyway.
+Element.prototype.getAnimations ??= () => []
