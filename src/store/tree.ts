@@ -54,6 +54,38 @@ export function collectIds(node: TreeNode): string[] {
 }
 
 /**
+ * Where a sidebar drag should land, or null if the drop is not a valid
+ * sibling reorder.
+ *
+ * Only siblings may be reordered. The brief asks for sibling ordering, not
+ * re-parenting — and a move to a different parent would also have to satisfy
+ * workspace -> space -> folder -> list, so a cross-parent drop is refused
+ * rather than guessed at.
+ */
+export function resolveSiblingDrop(
+  containers: Record<string, Container>,
+  activeId: string,
+  overId: string,
+): { containerId: string; toIndex: number } | null {
+  if (activeId === overId) return null
+
+  const moved = containers[activeId]
+  const target = containers[overId]
+  if (!moved || !target) return null
+  if (moved.parentId === null || moved.parentId !== target.parentId) return null
+
+  const siblings = Object.values(containers)
+    .filter(
+      (container) =>
+        container.parentId === moved.parentId && container.archivedAt === null,
+    )
+    .sort((a, b) => a.position - b.position)
+
+  const toIndex = siblings.findIndex((container) => container.id === overId)
+  return toIndex === -1 ? null : { containerId: activeId, toIndex }
+}
+
+/**
  * The path from the workspace down to a container, inclusive — the breadcrumb.
  * Returns an empty array when the id is unknown.
  */

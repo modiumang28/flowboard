@@ -1,3 +1,9 @@
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { ChevronRight, Folder, Layers, List, MoreHorizontal, Plus } from 'lucide-react'
 import { useEffect, useRef } from 'react'
@@ -50,12 +56,49 @@ export function TreeNodeRow(props: Props) {
     if (isEditing) inputRef.current?.select()
   }, [isEditing])
 
+  /*
+    Draggable and droppable are deliberately different elements: the <li> wraps
+    this row AND its children, so using it as the drop target would give every
+    parent a rectangle covering its whole subtree — dragging Bugs resolved to
+    Mobile App rather than Sprint 1. The row is the target; the transform stays
+    on the <li> so a dragged branch moves with its children.
+
+    STYLING EXCEPTION: dnd-kit computes the transform mid-gesture, so it has to
+    be an inline style. The brief permits this for DnD transforms.
+  */
+  const {
+    setDraggableNodeRef,
+    setDroppableNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: container.id,
+    disabled: isEditing || container.parentId === null,
+  })
+
   const action =
     'shrink-0 cursor-pointer rounded p-1 text-slate-400 opacity-0 transition group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-slate-200/70 hover:text-slate-600 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand'
 
   return (
-    <li>
-      <div className="group/row flex items-center gap-0.5">
+    <li
+      ref={setDraggableNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+    >
+      <div
+        ref={setDroppableNodeRef}
+        data-row-id={container.id}
+        {...attributes}
+        {...listeners}
+        // dnd-kit defaults this to role="button", which would wrap the row's
+        // own buttons inside another button.
+        role="group"
+        className={`group/row flex touch-none items-center gap-0.5 rounded-card ${
+          isDragging ? 'opacity-40' : ''
+        }`}
+      >
         <button
           type="button"
           onClick={() => onToggle(container.id)}
@@ -156,12 +199,18 @@ export function TreeNodeRow(props: Props) {
         )}
       </div>
 
+      {/* One SortableContext per level, so a drag only ever reorders siblings. */}
       {hasChildren && isOpen && (
-        <ul className="pl-3">
-          {children.map((child) => (
-            <TreeNodeRow key={child.container.id} {...props} node={child} />
-          ))}
-        </ul>
+        <SortableContext
+          items={children.map((child) => child.container.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="pl-3">
+            {children.map((child) => (
+              <TreeNodeRow key={child.container.id} {...props} node={child} />
+            ))}
+          </ul>
+        </SortableContext>
       )}
     </li>
   )
