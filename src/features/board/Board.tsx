@@ -1,18 +1,16 @@
 import {
-  closestCenter,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
-import { buildBoard } from '../../store/board'
+import { buildBoard, type BoardColumnData } from '../../store/board'
 import { useStore } from '../../store/store'
 import { BoardColumn } from './BoardColumn'
 import { TaskCard } from './TaskCard'
@@ -22,8 +20,10 @@ export function Board({ listId }: { listId: string }) {
   const tasks = useStore((state) => state.tasks)
   const users = useStore((state) => state.users)
   const reorderTask = useStore((state) => state.reorderTask)
+  const moveTaskToStatus = useStore((state) => state.moveTaskToStatus)
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [overStatusId, setOverStatusId] = useState<string | null>(null)
 
   const columns = useMemo(
     () => buildBoard(Object.values(statuses), Object.values(tasks), listId),
@@ -38,23 +38,45 @@ export function Board({ listId }: { listId: string }) {
   */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  /*
+    A drop target is either a column (dropped on empty space, id = status id)
+    or a card (dropped between cards, id = task id). Resolve both to the column
+    that would receive the task, and the index it would land at.
+  */
+  const resolveDrop = (
+    overId: string,
+  ): { column: BoardColumnData; index: number } | null => {
+    const asColumn = columns.find((column) => column.status.id === overId)
+    if (asColumn) return { column: asColumn, index: asColumn.tasks.length }
+
+    const asCard = columns.find((column) =>
+      column.tasks.some((task) => task.id === overId),
+    )
+    if (!asCard) return null
+    return { column: asCard, index: asCard.tasks.findIndex((t) => t.id === overId) }
+  }
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setDraggingId(null)
-    if (!over || active.id === over.id) return
+    setOverStatusId(null)
+    if (!over) return
 
-    // Reordering within a column only — moving between columns comes later.
-    const column = columns.find((candidate) =>
-      candidate.tasks.some((task) => task.id === active.id),
+    const taskId = String(active.id)
+    const target = resolveDrop(String(over.id))
+    const source = columns.find((column) =>
+      column.tasks.some((task) => task.id === taskId),
     )
-    if (!column) return
+    if (!target || !source) return
 
-    const toIndex = column.tasks.findIndex((task) => task.id === over.id)
-    if (toIndex === -1) return
-
-    reorderTask(String(active.id), toIndex)
+    if (source.status.id === target.column.status.id) {
+      if (active.id === over.id) return
+      reorderTask(taskId, target.index)
+    } else {
+      // Across columns, the gesture means "change status".
+      moveTaskToStatus(taskId, target.column.status.id, target.index)
+    }
   }
 
   const dragging = draggingId ? tasks[draggingId] : null
@@ -70,15 +92,32 @@ export function Board({ listId }: { listId: string }) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
-      modifiers={[restrictToVerticalAxis]}
+      /*
+        pointerWithin beats closestCenter here: with tall columns, closestCenter
+        keeps resolving to whichever card is nearest rather than the empty
+        column the pointer is actually inside.
+      */
+      collisionDetection={pointerWithin}
       onDragStart={({ active }: DragStartEvent) => setDraggingId(String(active.id))}
+      onDragOver={({ over }: DragOverEvent) =>
+        setOverStatusId(
+          over ? (resolveDrop(String(over.id))?.column.status.id ?? null) : null,
+        )
+      }
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setDraggingId(null)}
+      onDragCancel={() => {
+        setDraggingId(null)
+        setOverStatusId(null)
+      }}
     >
       <div className="flex h-full gap-3 overflow-x-auto px-6 pb-6">
         {columns.map((column) => (
-          <BoardColumn key={column.status.id} column={column} users={userList} />
+          <BoardColumn
+            key={column.status.id}
+            column={column}
+            users={userList}
+            isDropTarget={draggingId !== null && overStatusId === column.status.id}
+          />
         ))}
       </div>
 
@@ -86,7 +125,7 @@ export function Board({ listId }: { listId: string }) {
       <DragOverlay>
         {dragging ? (
           <div className="shadow-drag">
-            <TaskCard task={dragging} users={userList} />
+            <TaskCard task={dragging} users={userList} variant="overlay" />
           </div>
         ) : null}
       </DragOverlay>

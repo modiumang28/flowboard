@@ -5,13 +5,40 @@ import { PriorityBadge } from '../../components/PriorityBadge'
 import { formatDueDate } from '../../lib/format'
 import type { Task, User } from '../../types'
 
+/*
+  Where the card is being drawn:
+    - default:     on the board, reacting to hover and press
+    - placeholder: the spot a dragged card left behind; holds the pressed
+                   colour, since that is the state it was picked up in
+    - overlay:     the lifted copy following the pointer; plain white, and it
+                   must not pick up hover from the pointer sitting on top of it
+*/
+export type TaskCardVariant = 'default' | 'placeholder' | 'overlay'
+
 interface Props {
   task: Task
   users: User[]
+  variant?: TaskCardVariant
 }
 
-export function TaskCard({ task, users }: Props) {
+/*
+  Card states, split so they never compete:
+    - Background carries pointer state: hover and pressed.
+    - Border is reserved for keyboard focus (focus-visible keeps it off for
+      mouse clicks).
+*/
+const SURFACE: Record<TaskCardVariant, string> = {
+  default: 'bg-white hover:bg-slate-100 active:bg-slate-200',
+  placeholder: 'bg-slate-200',
+  overlay: 'bg-white',
+}
+
+const KEYBOARD_FOCUS =
+  'has-focus-visible:border-brand has-focus-visible:ring-1 has-focus-visible:ring-brand'
+
+export function TaskCard({ task, users, variant = 'default' }: Props) {
   const [, setSearchParams] = useSearchParams()
+
   const assignees = task.assigneeIds
     .map((id) => users.find((user) => user.id === id))
     .filter((user): user is User => Boolean(user))
@@ -20,7 +47,9 @@ export function TaskCard({ task, users }: Props) {
   const hasFooter = task.priority !== 'none' || due !== null || assignees.length > 0
 
   return (
-    <article className="rounded-card border border-line bg-white shadow-card transition focus-within:border-brand hover:border-slate-300 hover:shadow-pop">
+    <article
+      className={`rounded-card border border-line shadow-card transition-colors ${SURFACE[variant]} ${KEYBOARD_FOCUS}`}
+    >
       <button
         type="button"
         onClick={() => setSearchParams({ task: task.id })}
