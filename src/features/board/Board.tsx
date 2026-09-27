@@ -11,12 +11,14 @@ import {
 } from '@dnd-kit/core'
 import { useMemo, useState } from 'react'
 import { buildBoard, type BoardColumnData } from '../../store/board'
+import { BoardSkeleton } from '../../components/Skeleton'
 import { useStore } from '../../store/store'
 import { notifyOnError } from '../../store/toasts'
 import { BoardColumn } from './BoardColumn'
 import { TaskCard } from './TaskCard'
 
 export function Board({ listId }: { listId: string }) {
+  const isReady = useStore((state) => state.isReady)
   const statuses = useStore((state) => state.statuses)
   const tasks = useStore((state) => state.tasks)
   const users = useStore((state) => state.users)
@@ -89,6 +91,15 @@ export function Board({ listId }: { listId: string }) {
   }
 
   const dragging = draggingId ? tasks[draggingId] : null
+
+  if (!isReady) {
+    return (
+      <div aria-busy aria-live="polite" className="h-full">
+        <span className="sr-only">Loading board</span>
+        <BoardSkeleton />
+      </div>
+    )
+  }
 
   if (columns.length === 0) {
     return (

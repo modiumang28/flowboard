@@ -34,6 +34,13 @@ import { loadState } from './persistence'
 */
 
 export interface StoreState {
+  /*
+    False until the persistence adapter has answered. Views render skeletons
+    while it is false, which is the one genuine wait the app has — no delay is
+    staged anywhere else, because slowing the app down to show a spinner would
+    be worse than having none.
+  */
+  isReady: boolean
   containers: Record<string, Container>
   statuses: Record<string, Status>
   tasks: Record<string, Task>
@@ -81,8 +88,10 @@ export interface StoreActions {
 const byId = <T extends { id: string }>(items: T[]): Record<string, T> =>
   Object.fromEntries(items.map((item) => [item.id, item]))
 
+/** Ready by definition — tests set this directly and expect a usable store. */
 export function seededState(): StoreState {
   return {
+    isReady: true,
     containers: byId(seedContainers),
     statuses: byId(seedStatuses),
     tasks: byId(seedTasks),
@@ -116,7 +125,10 @@ const DEFAULT_STATUSES: {
 ]
 
 export const useStore = create<StoreState & StoreActions>()((set, get) => ({
-  ...(loadState() ?? seededState()),
+  // Seeded so the shape is valid from the first render, but not ready: what
+  // is on disk has not been read yet, and hydrate() below decides which wins.
+  ...seededState(),
+  isReady: false,
 
   createContainer(parentId, type, name) {
     const state = get()
@@ -483,3 +495,15 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     set({ currentUserId: userId })
   },
 }))
+
+/**
+ * Reads the persisted workspace, if any, and marks the store ready.
+ *
+ * Stored data replaces the seed wholesale rather than merging: a partial
+ * merge between two schema versions is how you end up with a half-migrated
+ * store that no test covers.
+ */
+export async function hydrate(): Promise<void> {
+  const stored = await loadState()
+  useStore.setState({ ...(stored ?? {}), isReady: true })
+}

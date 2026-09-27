@@ -21,12 +21,22 @@ const KEY = 'flowboard'
  */
 const VERSION = 1
 
+/** Readiness describes this adapter's own progress, so it is never stored. */
+type PersistedState = Omit<StoreState, 'isReady'>
+
 interface Envelope {
   version: number
-  state: StoreState
+  state: PersistedState
 }
 
-export function loadState(): StoreState | null {
+/*
+  Async on purpose. Reading localStorage is synchronous, but an API client
+  would not be — and this is the seam that would be swapped for one. Keeping
+  the signature promise-shaped means the loading state is a real await rather
+  than a staged delay, and nothing above has to change the day a backend
+  appears.
+*/
+export async function loadState(): Promise<PersistedState | null> {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
@@ -44,7 +54,7 @@ export function loadState(): StoreState | null {
   }
 }
 
-export function saveState(state: StoreState): void {
+export function saveState(state: PersistedState): void {
   try {
     const envelope: Envelope = { version: VERSION, state }
     localStorage.setItem(KEY, JSON.stringify(envelope))
@@ -58,7 +68,7 @@ export function clearState(): void {
 }
 
 /** Only entities are persisted — never UI state such as which drawer is open. */
-function persistable(state: StoreState): StoreState {
+function persistable(state: StoreState): PersistedState {
   return {
     containers: state.containers,
     statuses: state.statuses,

@@ -11,6 +11,7 @@ import {
   type SortDirection,
   type SortKey,
 } from '../../store/list'
+import { TableSkeleton } from '../../components/Skeleton'
 import { useStore } from '../../store/store'
 import type { User } from '../../types'
 
@@ -84,6 +85,7 @@ const LAST_CELL =
   'border-r border-line group-first/row:rounded-tr-card group-last/row:rounded-br-card'
 
 export function TaskTable({ listId }: { listId: string }) {
+  const isReady = useStore((state) => state.isReady)
   const statuses = useStore((state) => state.statuses)
   const tasks = useStore((state) => state.tasks)
   const users = useStore((state) => state.users)
@@ -101,6 +103,15 @@ export function TaskTable({ listId }: { listId: string }) {
       next.set('task', taskId)
       return next
     })
+
+  if (!isReady) {
+    return (
+      <div aria-busy aria-live="polite">
+        <span className="sr-only">Loading tasks</span>
+        <TableSkeleton />
+      </div>
+    )
+  }
 
   if (rows.length === 0) {
     return (

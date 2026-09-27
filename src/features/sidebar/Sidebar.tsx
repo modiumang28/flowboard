@@ -14,6 +14,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
 import { useMatch, useNavigate } from 'react-router-dom'
 import { isError } from '../../lib/result'
+import { SidebarSkeleton } from '../../components/Skeleton'
 import { useStore } from '../../store/store'
 import { buildTree, collectIds, resolveSiblingDrop } from '../../store/tree'
 import type { ContainerType } from '../../types'
@@ -30,8 +31,11 @@ export function Sidebar() {
   const archiveContainer = useStore((state) => state.archiveContainer)
   const reorderContainer = useStore((state) => state.reorderContainer)
 
+  const isReady = useStore((state) => state.isReady)
+
   const navigate = useNavigate()
   const selectedListId = useMatch('/list/:listId')?.params.listId ?? null
+
   const tree = useMemo(() => buildTree(Object.values(containers)), [containers])
 
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -172,8 +176,13 @@ export function Sidebar() {
         </p>
       )}
 
-      <div className="flex-1 overflow-y-auto p-2">
-        {tree ? (
+      <div className="flex-1 overflow-y-auto p-2" aria-busy={!isReady} aria-live="polite">
+        {!isReady ? (
+          <>
+            <span className="sr-only">Loading workspace</span>
+            <SidebarSkeleton />
+          </>
+        ) : tree ? (
           <DndContext
             sensors={sensors}
             collisionDetection={siblingCollisions}
