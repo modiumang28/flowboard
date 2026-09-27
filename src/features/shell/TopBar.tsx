@@ -1,6 +1,7 @@
 import { ChevronRight, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useMatch } from 'react-router-dom'
+import { listAccess } from '../../store/permissions'
 import { useStore } from '../../store/store'
 import { ancestorsOf } from '../../store/tree'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
@@ -16,11 +17,21 @@ export function TopBar() {
   const containers = useStore((state) => state.containers)
   const listId = useMatch('/list/:listId')?.params.listId ?? null
 
+  /*
+    A list the current user cannot reach is treated as if none were open: no
+    Create, no view toggle, and no breadcrumb. The breadcrumb matters most —
+    it names every ancestor, so rendering it for a denied list would spell out
+    the structure of a space the user is not allowed to know about.
+  */
+  const isOpen = useStore(
+    (state) => listId !== null && listAccess(state, state.currentUserId, listId) === 'ok',
+  )
+
   const [isCreating, setIsCreating] = useState(false)
 
   const trail = useMemo(
-    () => (listId ? ancestorsOf(containers, listId) : []),
-    [containers, listId],
+    () => (isOpen && listId ? ancestorsOf(containers, listId) : []),
+    [containers, listId, isOpen],
   )
 
   return (
@@ -52,8 +63,8 @@ export function TopBar() {
         )}
       </nav>
 
-      {/* Both only mean anything once a list is open. */}
-      {listId && (
+      {/* Both only mean anything once a reachable list is open. */}
+      {isOpen && (
         <>
           <button
             type="button"
@@ -69,7 +80,7 @@ export function TopBar() {
 
       <UserSwitcher />
 
-      {listId && isCreating && (
+      {isOpen && listId && isCreating && (
         <CreateTaskDialog listId={listId} onClose={() => setIsCreating(false)} />
       )}
     </header>

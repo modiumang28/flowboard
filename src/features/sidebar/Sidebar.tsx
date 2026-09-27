@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react'
 import { useMatch, useNavigate } from 'react-router-dom'
 import { isError } from '../../lib/result'
 import { SidebarSkeleton } from '../../components/Skeleton'
+import { canManageContainers, visibleContainers } from '../../store/permissions'
 import { useStore } from '../../store/store'
 import { buildTree, collectIds, resolveSiblingDrop } from '../../store/tree'
 import type { ContainerType } from '../../types'
@@ -32,11 +33,26 @@ export function Sidebar() {
   const reorderContainer = useStore((state) => state.reorderContainer)
 
   const isReady = useStore((state) => state.isReady)
+  const grants = useStore((state) => state.grants)
+  const users = useStore((state) => state.users)
+  const currentUserId = useStore((state) => state.currentUserId)
 
   const navigate = useNavigate()
   const selectedListId = useMatch('/list/:listId')?.params.listId ?? null
 
-  const tree = useMemo(() => buildTree(Object.values(containers)), [containers])
+  /*
+    The tree is filtered before it is nested, not after. A node whose parent
+    was filtered out is simply never reached, so a hidden branch takes its
+    whole subtree with it without any cascade logic.
+  */
+  const tree = useMemo(
+    () => buildTree(visibleContainers({ containers, grants, users }, currentUserId)),
+    [containers, grants, users, currentUserId],
+  )
+
+  // Members may edit tasks but not reshape the workspace, so the structural
+  // controls are hidden for them. The store refuses regardless.
+  const canManage = canManageContainers({ containers, grants, users }, currentUserId)
 
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(tree ? collectIds(tree) : []),
@@ -193,6 +209,7 @@ export function Sidebar() {
             <ul>
               <TreeNodeRow
                 node={tree}
+                canManage={canManage}
                 expanded={expanded}
                 onToggle={toggle}
                 selectedListId={selectedListId}

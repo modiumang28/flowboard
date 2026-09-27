@@ -33,6 +33,8 @@ export interface PendingChild {
 }
 
 export interface TreeNodeHandlers {
+  /** Members can edit tasks but not reshape the workspace. */
+  canManage: boolean
   expanded: Set<string>
   onToggle: (id: string) => void
   selectedListId: string | null
@@ -68,7 +70,7 @@ export function TreeNodeRow(props: Props) {
   const hasChildren = children.length > 0
   const isEditing = editingId === container.id
   const isAddingHere = props.pendingChild?.parentId === container.id
-  const childType = CHILD_TYPE[container.type]
+  const childType = props.canManage ? CHILD_TYPE[container.type] : null
   const Icon = ICON[container.type]
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export function TreeNodeRow(props: Props) {
     isDragging,
   } = useSortable({
     id: container.id,
-    disabled: isEditing || container.parentId === null,
+    disabled: !props.canManage || isEditing || container.parentId === null,
   })
 
   const action =
@@ -185,7 +187,7 @@ export function TreeNodeRow(props: Props) {
               </button>
             )}
 
-            {container.type !== 'workspace' && (
+            {props.canManage && container.type !== 'workspace' && (
               <Menu>
                 <MenuButton
                   aria-label={`Actions for ${container.name}`}

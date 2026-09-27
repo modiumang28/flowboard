@@ -21,6 +21,7 @@ import {
   type User,
 } from '../types'
 import { loadState } from './persistence'
+import { canEditTasksIn, canManageContainers } from './permissions'
 
 /*
   The single source of truth, and the only place data changes.
@@ -132,6 +133,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
 
   createContainer(parentId, type, name) {
     const state = get()
+    if (!canManageContainers(state, state.currentUserId)) {
+      return err('FORBIDDEN', 'Only an admin can change the workspace structure.')
+    }
     const trimmed = name.trim()
     if (trimmed.length === 0) return err('VALIDATION', 'A name is required.')
 
@@ -174,6 +178,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
 
   renameContainer(containerId, name) {
     const state = get()
+    if (!canManageContainers(state, state.currentUserId)) {
+      return err('FORBIDDEN', 'Only an admin can change the workspace structure.')
+    }
     const container = state.containers[containerId]
     if (!container) return err('NOT_FOUND', 'That item no longer exists.')
 
@@ -195,6 +202,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
   */
   archiveContainer(containerId) {
     const state = get()
+    if (!canManageContainers(state, state.currentUserId)) {
+      return err('FORBIDDEN', 'Only an admin can change the workspace structure.')
+    }
     const container = state.containers[containerId]
     if (!container) return err('NOT_FOUND', 'That item no longer exists.')
     if (container.type === 'workspace') {
@@ -224,6 +234,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
 
   reorderContainer(containerId, toIndex) {
     const state = get()
+    if (!canManageContainers(state, state.currentUserId)) {
+      return err('FORBIDDEN', 'Only an admin can change the workspace structure.')
+    }
     const container = state.containers[containerId]
     if (!container) return err('NOT_FOUND', 'That item no longer exists.')
     if (container.parentId === null) {
@@ -260,6 +273,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
   */
   createTask(listId, draft) {
     const state = get()
+    if (!canEditTasksIn(state, state.currentUserId, listId)) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
     const { statusId } = draft
 
     const trimmed = draft.title.trim()
@@ -311,6 +327,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     const state = get()
     const task = state.tasks[taskId]
     if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+    if (!canEditTasksIn(state, state.currentUserId, task.primaryListId)) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
 
     const now = new Date().toISOString()
     const remaining: Record<string, Task> = {}
@@ -335,6 +354,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     const state = get()
     const task = state.tasks[taskId]
     if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+    if (!canEditTasksIn(state, state.currentUserId, task.primaryListId)) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
 
     if (patch.title !== undefined) {
       const title = patch.title.trim()
@@ -373,6 +395,12 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     const state = get()
     const task = state.tasks[taskId]
     if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+    if (
+      !canEditTasksIn(state, state.currentUserId, task.primaryListId) ||
+      !canEditTasksIn(state, state.currentUserId, listId)
+    ) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
 
     const list = state.containers[listId]
     if (!list || list.type !== 'list')
@@ -418,6 +446,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     const state = get()
     const task = state.tasks[taskId]
     if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+    if (!canEditTasksIn(state, state.currentUserId, task.primaryListId)) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
 
     const column = Object.values(state.tasks)
       .filter((other) => other.statusId === task.statusId)
@@ -450,6 +481,9 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     const state = get()
     const task = state.tasks[taskId]
     if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+    if (!canEditTasksIn(state, state.currentUserId, task.primaryListId)) {
+      return err('FORBIDDEN', 'You do not have access to that list.')
+    }
 
     const status = state.statuses[statusId]
     if (!status) return err('NOT_FOUND', 'That status no longer exists.')

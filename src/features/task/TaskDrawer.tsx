@@ -6,6 +6,7 @@ import { Select } from '../../components/Select'
 import { PRIORITY_LABEL } from '../../lib/accents'
 import { formatFullDate, fromDateInputValue, toDateInputValue } from '../../lib/format'
 import { isError } from '../../lib/result'
+import { canEditTasksIn } from '../../store/permissions'
 import { useStore } from '../../store/store'
 import { PRIORITIES, type Priority, type Task } from '../../types'
 
@@ -59,7 +60,18 @@ interface Props {
 }
 
 export function TaskDrawer({ taskId, onClose }: Props) {
-  const task = useStore((state) => (taskId ? (state.tasks[taskId] ?? null) : null))
+  /*
+    Resolved through the permission check, not by id alone. The route guard
+    only vets the list in the path, so ?task= pointing at a task in a denied
+    list would otherwise read straight out of the store — the task id is
+    guessable and the drawer would happily show its title and assignees.
+  */
+  const task = useStore((state) => {
+    if (!taskId) return null
+    const found = state.tasks[taskId]
+    if (!found) return null
+    return canEditTasksIn(state, state.currentUserId, found.primaryListId) ? found : null
+  })
 
   return (
     <Dialog open={taskId !== null} onClose={onClose} className="relative z-50">

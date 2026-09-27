@@ -3,20 +3,31 @@ import { Toaster } from './components/Toaster'
 import { Board } from './features/board/Board'
 import { TaskTable } from './features/list/TaskTable'
 import { Sidebar } from './features/sidebar/Sidebar'
+import { AccessDenied } from './features/shell/AccessDenied'
 import { TopBar } from './features/shell/TopBar'
 import { useViewMode } from './features/shell/useViewMode'
 import { TaskDrawer } from './features/task/TaskDrawer'
+import { listAccess } from './store/permissions'
 import { useStore } from './store/store'
 
 function ListView() {
-  const { listId } = useParams()
+  const { listId = '' } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const list = useStore((state) => (listId ? state.containers[listId] : undefined))
   const view = useViewMode()
 
-  if (!list || list.type !== 'list' || list.archivedAt !== null) {
+  /*
+    The access check lives here rather than in the sidebar, because the
+    sidebar simply never offers a list you cannot see — so without a route
+    guard there would be no way to reach a denied resource at all, and no way
+    to show the 403 the brief asks for. Pasting the URL is that way.
+  */
+  const access = useStore((state) => listAccess(state, state.currentUserId, listId))
+
+  if (access === 'not-found') {
     return <Empty title="List not found" body={`No list with the id “${listId}”.`} />
   }
+
+  if (access === 'forbidden') return <AccessDenied />
 
   // The open task lives in the URL, so the back button closes the drawer and
   // a link to a task can be shared.
@@ -32,7 +43,7 @@ function ListView() {
 
   return (
     <>
-      {view === 'list' ? <TaskTable listId={list.id} /> : <Board listId={list.id} />}
+      {view === 'list' ? <TaskTable listId={listId} /> : <Board listId={listId} />}
       <TaskDrawer taskId={openTaskId} onClose={closeDrawer} />
     </>
   )
@@ -45,8 +56,6 @@ function Empty({ title, body }: { title: string; body: string }) {
         <p className="text-sm font-medium text-slate-900">{title}</p>
         <p className="mt-1 text-sm text-slate-500">{body}</p>
       </div>
-
-      <Toaster />
     </div>
   )
 }

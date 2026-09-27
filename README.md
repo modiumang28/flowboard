@@ -334,7 +334,90 @@ here rather than as a blank column three phases later.
 
 ## How permissions are enforced
 
-_TODO — the resolution rule, with worked examples for Alice, Bob and Carol._
+All of the rules live in `src/store/permissions.ts` as pure functions over
+state. Nothing in a component decides access; components only render what a
+selector hands them, and mutations are refused by the store whether or not the
+UI bothered to hide the control.
+
+### The rule
+
+> A container is reachable by a user if they are an **admin**, or if **every**
+> node on the path from the workspace down to it is individually permitted.
+>
+> A node is individually permitted when it is not archived, carries no `deny`
+> grant for that user, and is either `public` or carries an explicit `allow`
+> grant for that user.
+
+Two consequences fall out, and both are load-bearing:
+
+- **Deny beats allow.** A grant saying no wins over anything saying yes.
+- **A hidden ancestor hides its whole subtree**, however public the
+  descendants are.
+
+### The three users, worked through
+
+Grants in the seed: `deny Bob → Bugs`, `deny Carol → Sprint 1`,
+`allow Carol → Product`. Product is the only private container.
+
+| Container             | Alice (admin) | Bob                  | Carol          |
+| --------------------- | ------------- | -------------------- | -------------- |
+| Engineering (public)  | ✅            | ✅                   | ✅             |
+| Sprint 1 (public)     | ✅            | ✅                   | ❌ denied      |
+| Bugs (public)         | ✅            | ❌ denied            | ✅             |
+| **Product (private)** | ✅ bypass     | ❌ no allow grant    | ✅ allow grant |
+| Roadmap (public)      | ✅            | ❌ _ancestor hidden_ | ✅             |
+| Q3 Features (public)  | ✅            | ❌ _ancestor hidden_ | ✅             |
+
+Roadmap and Q3 Features are the interesting rows: both are public and neither
+carries a grant, yet Bob cannot reach either, because Product above them is
+private. That cascade is not special-cased anywhere — it falls out of the path
+walk, and of filtering the tree _before_ nesting it rather than after.
+
+### Where each check sits
+
+| Surface        | What happens                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar tree   | `visibleContainers()` filters, then `buildTree()` nests. A dropped parent is never recursed into, so its children simply never appear.                                                      |
+| Opening a list | The route resolves `listAccess()` and renders a 403 view. "Denied" and "does not exist" are kept distinct.                                                                                  |
+| Task drawer    | A task is resolved **through** the permission check, not by id. `?task=` is guessable, so an unchecked lookup would leak a denied task's title and assignees through an allowed list's URL. |
+| Breadcrumb     | Suppressed for an unreachable list — it names every ancestor, which would describe a private space the user is not meant to know exists.                                                    |
+| Every mutation | Returns `{ error: { code: 'FORBIDDEN', … } }`. Task actions check the list the task lives in; a move checks **both** ends, so a task cannot be pushed into a list the user cannot see.      |
+
+### Members versus admins
+
+The brief promises members exactly one thing — "can edit tasks in those lists"
+— and says nothing about structure. So the line drawn here is:
+
+- **Tasks:** any member may create, edit, move, reorder and delete tasks in a
+  list they can reach. View and edit are the same question; a read-only role
+  would be the thing that splits them.
+- **Containers:** admin only. Creating, renaming, deleting, and reordering the
+  tree are all refused for members, and the corresponding controls are hidden.
+
+### Why the tests are the evidence
+
+`src/store/permissions.test.ts` asks "what can Bob see?" with **nothing
+rendered**. That is only possible because the rules are not in a component —
+if they were, the question could not be asked without mounting the sidebar.
+`src/features/shell/UserSwitcher.test.tsx` covers the other half: that
+switching user immediately changes the tree, the board and the breadcrumb.
+
+### Extending the model
+
+The brief explicitly does not ask for team grants or richer roles. Both would
+be confined to `permissions.ts`:
+
+- **Teams.** Same grant table with a `subjectType` of `'user' | 'team'` plus a
+  membership list. Resolution gathers every grant whose subject matches the
+  user, keeping deny-wins. The path walk is unchanged.
+- **Per-resource roles.** Replace the `allow | deny` flag with a role
+  (`viewer` / `editor` / `admin`). The boolean helpers collapse into one
+  `roleFor(user, container)` that walks the same path and keeps the narrowest
+  role it finds. `canEditTasksIn` then stops being an alias for
+  `canViewContainer`, which is the point.
+- **A real backend.** These checks move to the server. The client copy stays as
+  a UI hint only — client-side checks are not security, they just save a
+  round trip and stop the interface offering what will be refused.
 
 ## Trade-offs and what I would do next
 
