@@ -106,23 +106,29 @@ export function TreeNodeRow(props: Props) {
         // dnd-kit defaults this to role="button", which would wrap the row's
         // own buttons inside another button.
         role="group"
-        className={`group/row flex touch-none items-center gap-0.5 rounded-card ${
+        // mb-1 keeps neighbouring highlights from touching; margins collapse,
+        // so the gap is the same between siblings and across levels.
+        className={`group/row mb-1 flex touch-none items-center gap-0.5 rounded-card ${
           isDragging ? 'opacity-40' : ''
         }`}
       >
-        <button
-          type="button"
-          onClick={() => onToggle(container.id)}
-          aria-label={isOpen ? `Collapse ${container.name}` : `Expand ${container.name}`}
-          aria-expanded={hasChildren ? isOpen : undefined}
-          disabled={!hasChildren}
-          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:invisible"
-        >
-          <ChevronRight
-            size={14}
-            className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
-          />
-        </button>
+        {/* A chevron only where there is something to expand. */}
+        {hasChildren && (
+          <button
+            type="button"
+            onClick={() => onToggle(container.id)}
+            aria-label={
+              isOpen ? `Collapse ${container.name}` : `Expand ${container.name}`
+            }
+            aria-expanded={isOpen}
+            className="shrink-0 cursor-pointer rounded p-0.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          >
+            <ChevronRight
+              size={14}
+              className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
+            />
+          </button>
+        )}
 
         {isEditing ? (
           <input
@@ -145,7 +151,9 @@ export function TreeNodeRow(props: Props) {
                 isList ? navigate(`/list/${container.id}`) : onToggle(container.id)
               }
               aria-current={isSelected ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-card px-1.5 py-1.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
+              // Hover and selection colour the name only, ending short of the
+              // "+" and "…" buttons (mr-1) so they read as separate controls.
+              className={`mr-1 flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-card px-1.5 py-1.5 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
                 isSelected
                   ? 'bg-brand/10 font-medium text-brand'
                   : 'text-slate-700 hover:bg-slate-200/60'

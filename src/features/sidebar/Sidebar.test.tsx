@@ -50,6 +50,16 @@ describe('Sidebar — reading the tree', () => {
     expect(screen.getByRole('button', { name: 'Q3 Features' })).toBeInTheDocument()
   })
 
+  it('gives a chevron only to rows that have children', () => {
+    renderSidebar()
+    expect(
+      screen.getByRole('button', { name: 'Collapse Mobile App' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /(Expand|Collapse) Bugs/ }),
+    ).not.toBeInTheDocument()
+  })
+
   it('marks the list from the URL as current', () => {
     renderSidebar('/list/list-bugs')
 
