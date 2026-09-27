@@ -40,8 +40,8 @@ describe('formatDueDate', () => {
     expect(formatDueDate('2026-09-27T17:00:00.000Z', now).label).toBe('Tomorrow')
   })
 
-  it('uses a weekday within the week', () => {
-    expect(formatDueDate('2026-09-30T17:00:00.000Z', now).label).toBe('Wed')
+  it('uses a date, not a weekday, from two days out', () => {
+    expect(formatDueDate('2026-09-30T17:00:00.000Z', now).label).toBe('30 Sept')
   })
 
   it('falls back to a date further out', () => {

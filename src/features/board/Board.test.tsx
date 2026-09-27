@@ -1,7 +1,7 @@
 import { render as rtlRender, screen, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Board } from './Board'
 
 // Cards read and write the ?task= param, so they need a router around them.
@@ -36,13 +36,21 @@ describe('Board', () => {
   })
 
   it('shows priority, assignee initials and due date on a card', () => {
-    render(<Board listId="list-bugs" />)
-    const open = screen.getByRole('region', { name: 'Open' })
+    // The due label is relative to today, so pin today. Only Date is faked;
+    // real timers keep running for React and Testing Library.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-26T12:00:00.000Z'))
+    try {
+      render(<Board listId="list-bugs" />)
+      const open = screen.getByRole('region', { name: 'Open' })
 
-    expect(within(open).getByText('Urgent')).toBeInTheDocument()
-    expect(within(open).getByTitle('Bob Martinez')).toHaveTextContent('BM')
-    // "Fix crash on checkout" is due 2026-09-28.
-    expect(within(open).getByText(/late|Today|Tomorrow|\d/)).toBeInTheDocument()
+      expect(within(open).getByText('Urgent')).toBeInTheDocument()
+      expect(within(open).getByTitle('Bob Martinez')).toHaveTextContent('BM')
+      // "Fix crash on checkout" is due 2026-09-28, two days out.
+      expect(within(open).getByText('28 Sept')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows an empty state for a column with no tasks', () => {

@@ -9,7 +9,6 @@ export function initials(name: string): string {
 }
 
 const dayFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
-const weekdayFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'short' })
 const fullFormat = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
   month: 'short',
@@ -48,9 +47,10 @@ export interface DueDate {
 }
 
 /**
- * Turns an ISO date into something scannable on a card. Relative wording for
- * the near term, because "2 days late" reads faster than a date you have to
- * compare against today yourself.
+ * Turns an ISO date into something scannable on a card. Relative wording only
+ * where it needs no working out — "2 days late", "Today", "Tomorrow". Anything
+ * further out is a plain date: a weekday such as "Thu" leaves the reader asking
+ * which Thursday.
  */
 export function formatDueDate(iso: string, now = new Date()): DueDate {
   const due = new Date(iso)
@@ -65,6 +65,5 @@ export function formatDueDate(iso: string, now = new Date()): DueDate {
   }
   if (days === 0) return { label: 'Today', isOverdue: false }
   if (days === 1) return { label: 'Tomorrow', isOverdue: false }
-  if (days < 7) return { label: weekdayFormat.format(due), isOverdue: false }
   return { label: dayFormat.format(due), isOverdue: false }
 }
