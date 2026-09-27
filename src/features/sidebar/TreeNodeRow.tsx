@@ -12,13 +12,6 @@ const ICON: Record<ContainerType, typeof Folder> = {
   list: List,
 }
 
-const CHILD_LABEL: Record<ContainerType, string> = {
-  workspace: 'space',
-  space: 'folder',
-  folder: 'list',
-  list: '',
-}
-
 export interface TreeNodeHandlers {
   expanded: Set<string>
   onToggle: (id: string) => void
@@ -115,7 +108,7 @@ export function TreeNodeRow(props: Props) {
               <button
                 type="button"
                 onClick={() => props.onAddChild(container.id, childType)}
-                aria-label={`Add ${CHILD_LABEL[container.type]} to ${container.name}`}
+                aria-label={`Add ${childType} to ${container.name}`}
                 className={action}
               >
                 <Plus size={13} />
