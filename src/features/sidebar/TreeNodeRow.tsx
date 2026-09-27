@@ -18,6 +18,12 @@ const ICON: Record<ContainerType, typeof Folder> = {
   list: List,
 }
 
+/** A child that has been asked for with "+" but not yet named. */
+export interface PendingChild {
+  parentId: string
+  type: ContainerType
+}
+
 export interface TreeNodeHandlers {
   expanded: Set<string>
   onToggle: (id: string) => void
@@ -29,6 +35,10 @@ export interface TreeNodeHandlers {
   onCommitRename: () => void
   onCancelRename: () => void
   onAddChild: (parentId: string, type: ContainerType) => void
+  pendingChild: PendingChild | null
+  /** Creates the pending child; false when there is nothing valid to create. */
+  onSubmitChild: () => boolean
+  onCancelChild: () => void
   onArchive: (id: string) => void
 }
 
@@ -49,6 +59,7 @@ export function TreeNodeRow(props: Props) {
   const isOpen = expanded.has(container.id)
   const hasChildren = children.length > 0
   const isEditing = editingId === container.id
+  const isAddingHere = props.pendingChild?.parentId === container.id
   const childType = CHILD_TYPE[container.type]
   const Icon = ICON[container.type]
 
@@ -200,7 +211,7 @@ export function TreeNodeRow(props: Props) {
       </div>
 
       {/* One SortableContext per level, so a drag only ever reorders siblings. */}
-      {hasChildren && isOpen && (
+      {(hasChildren || isAddingHere) && isOpen && (
         <SortableContext
           items={children.map((child) => child.container.id)}
           strategy={verticalListSortingStrategy}
@@ -209,9 +220,81 @@ export function TreeNodeRow(props: Props) {
             {children.map((child) => (
               <TreeNodeRow key={child.container.id} {...props} node={child} />
             ))}
+            {/* Last, because that is where the new sibling will be placed. */}
+            {isAddingHere && (
+              <NewChildRow
+                type={props.pendingChild!.type}
+                draftName={props.draftName}
+                onDraftChange={props.onDraftChange}
+                onSubmit={props.onSubmitChild}
+                onCancel={props.onCancelChild}
+              />
+            )}
           </ul>
         </SortableContext>
       )}
+    </li>
+  )
+}
+
+/*
+  The name field "+" opens. Enter submits; with a blank name it stays open,
+  since there is nothing to create. Escape abandons it, and so does clicking
+  away while it is still blank. Clicking away with a name submits it, the same
+  as renaming.
+*/
+function NewChildRow({
+  type,
+  draftName,
+  onDraftChange,
+  onSubmit,
+  onCancel,
+}: {
+  type: ContainerType
+  draftName: string
+  onDraftChange: (name: string) => void
+  onSubmit: () => boolean
+  onCancel: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  // Enter and Escape close the field, which blurs it. This stops that trailing
+  // blur from submitting a second time or cancelling what was just created.
+  const settled = useRef(false)
+  const Icon = ICON[type]
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  const submit = () => {
+    if (!settled.current && onSubmit()) settled.current = true
+  }
+  const cancel = () => {
+    if (settled.current) return
+    settled.current = true
+    onCancel()
+  }
+
+  return (
+    <li>
+      <div className="mb-1 flex items-center gap-0.5">
+        {/* Holds the chevron's width, so the field lines up with its siblings. */}
+        <span className="w-4.5 shrink-0" />
+        <Icon size={15} className="mx-1.5 shrink-0 text-slate-400" />
+        <input
+          ref={inputRef}
+          aria-label={`New ${type} name`}
+          placeholder={`${type[0].toUpperCase()}${type.slice(1)} name`}
+          value={draftName}
+          onChange={(event) => onDraftChange(event.target.value)}
+          onBlur={() => (draftName.trim() === '' ? cancel() : submit())}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') submit()
+            if (event.key === 'Escape') cancel()
+          }}
+          className="min-w-0 flex-1 rounded-card border border-brand px-1.5 py-1 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+        />
+      </div>
     </li>
   )
 }

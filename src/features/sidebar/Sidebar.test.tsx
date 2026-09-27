@@ -76,18 +76,21 @@ describe('Sidebar — reading the tree', () => {
 })
 
 describe('Sidebar — creating', () => {
-  it('adds a space under the workspace and opens it for renaming', async () => {
+  it('adds a space under the workspace once it is named', async () => {
     const user = userEvent.setup()
     renderSidebar()
 
     await user.click(screen.getByRole('button', { name: 'Add space to FoodApp' }))
-
-    const input = screen.getByRole('textbox', { name: 'Rename New space' })
-    await user.clear(input)
-    await user.type(input, 'Design{Enter}')
+    await user.type(
+      screen.getByRole('textbox', { name: 'New space name' }),
+      'Design{Enter}',
+    )
 
     await waitFor(() => expect(named('Design')?.type).toBe('space'))
     expect(named('Design')?.parentId).toBe('workspace-foodapp')
+    expect(
+      screen.queryByRole('textbox', { name: 'New space name' }),
+    ).not.toBeInTheDocument()
   })
 
   it('adds a list with its own statuses', async () => {
@@ -95,13 +98,101 @@ describe('Sidebar — creating', () => {
     renderSidebar()
 
     await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'New list name' }),
+      'Backlog{Enter}',
+    )
 
-    const created = named('New list')
+    const created = named('Backlog')
     expect(created).toBeDefined()
     const statuses = Object.values(useStore.getState().statuses).filter(
       (s) => s.listId === created!.id,
     )
     expect(statuses.map((s) => s.name).sort()).toEqual(['Done', 'In Progress', 'To Do'])
+  })
+
+  it('creates nothing when "+" is clicked, until a name is submitted', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const before = containers().length
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+
+    expect(screen.getByRole('textbox', { name: 'New list name' })).toHaveFocus()
+    expect(containers()).toHaveLength(before)
+  })
+
+  it('ignores Enter on a blank name and keeps the field open', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const before = containers().length
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    const input = screen.getByRole('textbox', { name: 'New list name' })
+    await user.type(input, '{Enter}')
+    await user.type(input, '   {Enter}')
+
+    expect(containers()).toHaveLength(before)
+    expect(input).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('abandons the new item on Escape, even with a name typed', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const before = containers().length
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'New list name' }),
+      'Backlog{Escape}',
+    )
+
+    expect(
+      screen.queryByRole('textbox', { name: 'New list name' }),
+    ).not.toBeInTheDocument()
+    expect(containers()).toHaveLength(before)
+  })
+
+  it('closes a blank field on click away without creating anything', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const before = containers().length
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    await user.click(screen.getByText('Flowboard'))
+
+    expect(
+      screen.queryByRole('textbox', { name: 'New list name' }),
+    ).not.toBeInTheDocument()
+    expect(containers()).toHaveLength(before)
+  })
+
+  it('creates a named item on click away, like rename does', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    await user.type(screen.getByRole('textbox', { name: 'New list name' }), 'Backlog')
+    await user.click(screen.getByText('Flowboard'))
+
+    await waitFor(() => expect(named('Backlog')?.parentId).toBe('folder-mobile-app'))
+  })
+
+  it('creates exactly one item on Enter', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+    const before = containers().length
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'New list name' }),
+      'Backlog{Enter}',
+    )
+    await user.click(screen.getByText('Flowboard'))
+
+    expect(containers()).toHaveLength(before + 1)
+    expect(containers().filter((c) => c.name === 'Backlog')).toHaveLength(1)
   })
 
   it('offers no add button on a list, which holds tasks not containers', () => {

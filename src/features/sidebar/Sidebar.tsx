@@ -17,14 +17,7 @@ import { isError } from '../../lib/result'
 import { useStore } from '../../store/store'
 import { buildTree, collectIds, resolveSiblingDrop } from '../../store/tree'
 import type { ContainerType } from '../../types'
-import { TreeNodeRow } from './TreeNodeRow'
-
-const NEW_NAME: Record<ContainerType, string> = {
-  workspace: 'Workspace',
-  space: 'New space',
-  folder: 'New folder',
-  list: 'New list',
-}
+import { TreeNodeRow, type PendingChild } from './TreeNodeRow'
 
 /*
   The selection comes from useMatch rather than useParams: the sidebar renders
@@ -45,6 +38,9 @@ export function Sidebar() {
     () => new Set(tree ? collectIds(tree) : []),
   )
   const [editingId, setEditingId] = useState<string | null>(null)
+  // A child being named under its parent. Nothing exists in the store until a
+  // name is submitted, so an empty or abandoned name leaves nothing behind.
+  const [pendingChild, setPendingChild] = useState<PendingChild | null>(null)
   const [draftName, setDraftName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -69,6 +65,7 @@ export function Sidebar() {
     })
 
   const startRename = (id: string, current: string) => {
+    setPendingChild(null)
     setDraftName(current)
     setEditingId(id)
     setError(null)
@@ -82,16 +79,28 @@ export function Sidebar() {
     setEditingId(null)
   }
 
-  /* New items are created with a placeholder name and opened for renaming
-     straight away, so naming is one gesture rather than a separate dialog. */
+  /* "+" opens an empty name field under the parent; the container is only
+     created once a name is submitted. */
   const addChild = (parentId: string, type: ContainerType) => {
-    const result = createContainer(parentId, type, NEW_NAME[type])
+    setEditingId(null)
+    setDraftName('')
+    setError(null)
+    setPendingChild({ parentId, type })
+    setExpanded((current) => new Set(current).add(parentId))
+  }
+
+  /* Returns whether the field can close. A blank name never reaches the store:
+     it is simply not a submission. */
+  const submitChild = (): boolean => {
+    if (!pendingChild || draftName.trim() === '') return false
+    const result = createContainer(pendingChild.parentId, pendingChild.type, draftName)
     if (isError(result)) {
       setError(result.error.message)
-      return
+      return false
     }
-    setExpanded((current) => new Set(current).add(parentId))
-    startRename(result.data.id, result.data.name)
+    setError(null)
+    setPendingChild(null)
+    return true
   }
 
   const archive = (id: string) => {
@@ -185,6 +194,9 @@ export function Sidebar() {
                 onCommitRename={commitRename}
                 onCancelRename={() => setEditingId(null)}
                 onAddChild={addChild}
+                pendingChild={pendingChild}
+                onSubmitChild={submitChild}
+                onCancelChild={() => setPendingChild(null)}
                 onArchive={archive}
               />
             </ul>
