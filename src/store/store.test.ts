@@ -15,6 +15,156 @@ beforeEach(() => {
   useStore.setState(seededState())
 })
 
+describe('createContainer', () => {
+  it('creates a space under the workspace', () => {
+    const result = store().createContainer('workspace-foodapp', 'space', 'Design')
+    expect(isError(result)).toBe(false)
+    if (!isError(result)) {
+      expect(store().containers[result.data.id]).toMatchObject({
+        name: 'Design',
+        type: 'space',
+        parentId: 'workspace-foodapp',
+        visibility: 'public',
+        archivedAt: null,
+      })
+    }
+  })
+
+  it('gives a new list its own default status set', () => {
+    const result = store().createContainer('folder-mobile-app', 'list', 'Chores')
+    expect(isError(result)).toBe(false)
+    if (isError(result)) return
+
+    const statuses = Object.values(store().statuses)
+      .filter((s) => s.listId === result.data.id)
+      .sort((a, b) => a.position - b.position)
+
+    expect(statuses.map((s) => s.name)).toEqual(['To Do', 'In Progress', 'Done'])
+    expect(statuses.map((s) => s.category)).toEqual(['todo', 'active', 'done'])
+  })
+
+  it('does not share status objects with any other list', () => {
+    const result = store().createContainer('folder-mobile-app', 'list', 'Chores')
+    if (isError(result)) throw new Error('setup failed')
+
+    const ids = Object.values(store().statuses)
+      .filter((s) => s.listId === result.data.id)
+      .map((s) => s.id)
+    const others = Object.values(store().statuses)
+      .filter((s) => s.listId !== result.data.id)
+      .map((s) => s.id)
+
+    expect(ids.some((id) => others.includes(id))).toBe(false)
+  })
+
+  it('appends after existing siblings', () => {
+    const result = store().createContainer('folder-mobile-app', 'list', 'Chores')
+    if (isError(result)) throw new Error('setup failed')
+    // Sprint 1 is 0 and Bugs is 1.
+    expect(result.data.position).toBe(2)
+  })
+
+  it('refuses an invalid parent type', () => {
+    const result = store().createContainer('workspace-foodapp', 'list', 'Nope')
+    expect(result).toEqual({
+      error: {
+        code: 'INVALID_PARENT',
+        message: 'A list cannot sit inside a workspace.',
+      },
+    })
+  })
+
+  it('refuses a container inside a list', () => {
+    const result = store().createContainer('list-bugs', 'list', 'Nested')
+    expect(isError(result) && result.error.code).toBe('INVALID_PARENT')
+  })
+
+  it('refuses an empty name', () => {
+    const result = store().createContainer('workspace-foodapp', 'space', '   ')
+    expect(isError(result) && result.error.code).toBe('VALIDATION')
+  })
+
+  it('refuses an unknown parent', () => {
+    const result = store().createContainer('nope', 'space', 'Design')
+    expect(isError(result) && result.error.code).toBe('NOT_FOUND')
+  })
+})
+
+describe('renameContainer', () => {
+  it('renames and trims', () => {
+    store().renameContainer('list-bugs', '  Defects  ')
+    expect(store().containers['list-bugs'].name).toBe('Defects')
+  })
+
+  it('refuses an empty name', () => {
+    const result = store().renameContainer('list-bugs', '  ')
+    expect(isError(result) && result.error.code).toBe('VALIDATION')
+    expect(store().containers['list-bugs'].name).toBe('Bugs')
+  })
+
+  it('reports an unknown container as NOT_FOUND', () => {
+    expect(isError(store().renameContainer('nope', 'X'))).toBe(true)
+  })
+})
+
+describe('archiveContainer', () => {
+  it('marks it archived without deleting it', () => {
+    store().archiveContainer('list-bugs')
+    expect(store().containers['list-bugs']).toBeDefined()
+    expect(store().containers['list-bugs'].archivedAt).not.toBeNull()
+  })
+
+  it('leaves tasks in place, since this is a soft delete', () => {
+    store().archiveContainer('list-bugs')
+    expect(store().tasks['task-fix-crash']).toBeDefined()
+  })
+
+  it('closes the gap in its siblings', () => {
+    store().archiveContainer('list-sprint-1')
+    expect(store().containers['list-bugs'].position).toBe(0)
+  })
+
+  it('refuses to archive the workspace', () => {
+    const result = store().archiveContainer('workspace-foodapp')
+    expect(isError(result) && result.error.code).toBe('VALIDATION')
+  })
+
+  it('is a no-op when already archived', () => {
+    store().archiveContainer('list-bugs')
+    const first = store().containers['list-bugs'].archivedAt
+    store().archiveContainer('list-bugs')
+    expect(store().containers['list-bugs'].archivedAt).toBe(first)
+  })
+})
+
+describe('reorderContainer', () => {
+  const lists = () =>
+    Object.values(store().containers)
+      .filter((c) => c.parentId === 'folder-mobile-app' && c.archivedAt === null)
+      .sort((a, b) => a.position - b.position)
+      .map((c) => c.id)
+
+  it('moves a sibling', () => {
+    expect(lists()).toEqual(['list-sprint-1', 'list-bugs'])
+    store().reorderContainer('list-bugs', 0)
+    expect(lists()).toEqual(['list-bugs', 'list-sprint-1'])
+  })
+
+  it('keeps positions dense', () => {
+    store().reorderContainer('list-bugs', 0)
+    const positions = Object.values(store().containers)
+      .filter((c) => c.parentId === 'folder-mobile-app')
+      .map((c) => c.position)
+      .sort((a, b) => a - b)
+    expect(positions).toEqual([0, 1])
+  })
+
+  it('refuses to reorder the workspace', () => {
+    const result = store().reorderContainer('workspace-foodapp', 0)
+    expect(isError(result) && result.error.code).toBe('VALIDATION')
+  })
+})
+
 describe('updateTask', () => {
   it('applies a patch and bumps updatedAt', () => {
     const before = task('task-fix-crash').updatedAt
@@ -219,6 +369,92 @@ describe('reorderTask', () => {
   it('reports an unknown task as NOT_FOUND', () => {
     const result = store().reorderTask('task-nope', 0)
     expect(isError(result) && result.error.code).toBe('NOT_FOUND')
+  })
+})
+
+describe('moveTaskToStatus', () => {
+  const inColumn = (statusId: string) =>
+    Object.values(store().tasks)
+      .filter((t) => t.statusId === statusId)
+      .sort((a, b) => a.position - b.position)
+      .map((t) => t.id)
+
+  it('changes the status and lands at the requested index', () => {
+    // Sprint 1: To Do -> In Progress, at the top.
+    const result = store().moveTaskToStatus(
+      'task-analytics-events',
+      'status-sprint-1-progress',
+      0,
+    )
+
+    expect(isError(result)).toBe(false)
+    expect(task('task-analytics-events').statusId).toBe('status-sprint-1-progress')
+    expect(inColumn('status-sprint-1-progress')[0]).toBe('task-analytics-events')
+  })
+
+  it('closes the gap in the column it left', () => {
+    store().moveTaskToStatus('task-build-login', 'status-sprint-1-done', 0)
+
+    const positions = Object.values(store().tasks)
+      .filter((t) => t.statusId === 'status-sprint-1-todo')
+      .map((t) => t.position)
+      .sort((a, b) => a - b)
+    expect(positions).toEqual([0, 1])
+  })
+
+  it('renumbers the column it joined', () => {
+    store().moveTaskToStatus('task-build-login', 'status-sprint-1-progress', 1)
+
+    const positions = Object.values(store().tasks)
+      .filter((t) => t.statusId === 'status-sprint-1-progress')
+      .map((t) => t.position)
+      .sort((a, b) => a - b)
+    expect(positions).toEqual([0, 1, 2])
+  })
+
+  it('appends when the index is past the end', () => {
+    store().moveTaskToStatus('task-build-login', 'status-sprint-1-progress', 99)
+    expect(inColumn('status-sprint-1-progress').at(-1)).toBe('task-build-login')
+  })
+
+  it('drops into an empty column', () => {
+    // Q3 "Done" starts empty.
+    store().moveTaskToStatus('task-ratings-v2', 'status-q3-done', 0)
+    expect(inColumn('status-q3-done')).toEqual(['task-ratings-v2'])
+    expect(task('task-ratings-v2').position).toBe(0)
+  })
+
+  it('refuses a status from another list', () => {
+    const result = store().moveTaskToStatus('task-build-login', 'status-bugs-open', 0)
+    expect(result).toEqual({
+      error: { code: 'VALIDATION', message: 'That status belongs to a different list.' },
+    })
+    expect(task('task-build-login').statusId).toBe('status-sprint-1-todo')
+  })
+
+  it('falls back to reordering when the status is unchanged', () => {
+    store().moveTaskToStatus('task-build-login', 'status-sprint-1-todo', 2)
+    expect(inColumn('status-sprint-1-todo').at(-1)).toBe('task-build-login')
+  })
+
+  it('never leaves two tasks sharing a position', () => {
+    store().moveTaskToStatus('task-build-login', 'status-sprint-1-progress', 1)
+
+    const seen = new Set<string>()
+    for (const t of Object.values(store().tasks)) {
+      const key = `${t.statusId}:${t.position}`
+      expect(seen.has(key)).toBe(false)
+      seen.add(key)
+    }
+  })
+
+  it('reports unknown ids as NOT_FOUND', () => {
+    expect(
+      isError(store().moveTaskToStatus('task-nope', 'status-sprint-1-todo', 0)),
+    ).toBe(true)
+    expect(isError(store().moveTaskToStatus('task-build-login', 'status-nope', 0))).toBe(
+      true,
+    )
   })
 })
 

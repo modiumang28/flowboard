@@ -10,9 +10,12 @@ import {
 import { err, ok, type Result } from '../lib/result'
 import {
   MAX_TITLE_LENGTH,
+  VALID_PARENT_TYPE,
   type Container,
+  type ContainerType,
   type Grant,
   type Status,
+  type StatusCategory,
   type Task,
   type User,
 } from '../types'
@@ -47,9 +50,18 @@ export type TaskPatch = Partial<
 >
 
 export interface StoreActions {
+  createContainer: (
+    parentId: string,
+    type: ContainerType,
+    name: string,
+  ) => Result<Container>
+  renameContainer: (containerId: string, name: string) => Result<Container>
+  archiveContainer: (containerId: string) => Result<Container>
+  reorderContainer: (containerId: string, toIndex: number) => Result<Container>
   updateTask: (taskId: string, patch: TaskPatch) => Result<Task>
   moveTaskToList: (taskId: string, listId: string) => Result<Task>
   reorderTask: (taskId: string, toIndex: number) => Result<Task>
+  moveTaskToStatus: (taskId: string, statusId: string, toIndex: number) => Result<Task>
   setCurrentUser: (userId: string) => void
 }
 
@@ -75,8 +87,145 @@ function nextPosition(tasks: Record<string, Task>, statusId: string): number {
   return positions.length === 0 ? 0 : Math.max(...positions) + 1
 }
 
+/*
+  Every new list needs its own status set straight away — the brief requires a
+  minimum of todo / in progress / done, and a list with no statuses would
+  render an empty board.
+*/
+const DEFAULT_STATUSES: {
+  name: string
+  category: StatusCategory
+  color: Status['color']
+}[] = [
+  { name: 'To Do', category: 'todo', color: 'slate' },
+  { name: 'In Progress', category: 'active', color: 'blue' },
+  { name: 'Done', category: 'done', color: 'green' },
+]
+
 export const useStore = create<StoreState & StoreActions>()((set, get) => ({
   ...(loadState() ?? seededState()),
+
+  createContainer(parentId, type, name) {
+    const state = get()
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return err('VALIDATION', 'A name is required.')
+
+    const parent = state.containers[parentId]
+    if (!parent) return err('NOT_FOUND', 'That parent no longer exists.')
+
+    // workspace -> space -> folder -> list, and nothing else.
+    if (VALID_PARENT_TYPE[type] !== parent.type) {
+      return err('INVALID_PARENT', `A ${type} cannot sit inside a ${parent.type}.`)
+    }
+
+    const siblings = Object.values(state.containers).filter(
+      (container) => container.parentId === parentId,
+    )
+    const container: Container = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      type,
+      parentId,
+      position:
+        siblings.length === 0 ? 0 : Math.max(...siblings.map((s) => s.position)) + 1,
+      visibility: 'public',
+      archivedAt: null,
+    }
+
+    const statuses: Record<string, Status> = {}
+    if (type === 'list') {
+      DEFAULT_STATUSES.forEach((preset, index) => {
+        const id = crypto.randomUUID()
+        statuses[id] = { id, listId: container.id, ...preset, position: index }
+      })
+    }
+
+    set((current) => ({
+      containers: { ...current.containers, [container.id]: container },
+      statuses: { ...current.statuses, ...statuses },
+    }))
+    return ok(container)
+  },
+
+  renameContainer(containerId, name) {
+    const state = get()
+    const container = state.containers[containerId]
+    if (!container) return err('NOT_FOUND', 'That item no longer exists.')
+
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return err('VALIDATION', 'A name is required.')
+    if (trimmed === container.name) return ok(container)
+
+    const renamed = { ...container, name: trimmed }
+    set((current) => ({
+      containers: { ...current.containers, [containerId]: renamed },
+    }))
+    return ok(renamed)
+  },
+
+  /*
+    Soft delete: the record stays and only stops being visible. The subtree
+    goes with it for free — buildTree never reaches children whose parent was
+    filtered out — so nothing has to be cascaded by hand.
+  */
+  archiveContainer(containerId) {
+    const state = get()
+    const container = state.containers[containerId]
+    if (!container) return err('NOT_FOUND', 'That item no longer exists.')
+    if (container.type === 'workspace') {
+      return err('VALIDATION', 'The workspace cannot be archived.')
+    }
+    if (container.archivedAt) return ok(container)
+
+    const archived = { ...container, archivedAt: new Date().toISOString() }
+    const siblings = Object.values(state.containers)
+      .filter(
+        (other) =>
+          other.parentId === container.parentId &&
+          other.id !== containerId &&
+          other.archivedAt === null,
+      )
+      .sort((a, b) => a.position - b.position)
+
+    const changed: Record<string, Container> = { [containerId]: archived }
+    siblings.forEach((sibling, index) => {
+      if (sibling.position !== index)
+        changed[sibling.id] = { ...sibling, position: index }
+    })
+
+    set((current) => ({ containers: { ...current.containers, ...changed } }))
+    return ok(archived)
+  },
+
+  reorderContainer(containerId, toIndex) {
+    const state = get()
+    const container = state.containers[containerId]
+    if (!container) return err('NOT_FOUND', 'That item no longer exists.')
+    if (container.parentId === null) {
+      return err('VALIDATION', 'The workspace has no siblings to reorder among.')
+    }
+
+    const siblings = Object.values(state.containers)
+      .filter(
+        (other) => other.parentId === container.parentId && other.archivedAt === null,
+      )
+      .sort((a, b) => a.position - b.position)
+
+    const from = siblings.findIndex((other) => other.id === containerId)
+    const to = Math.max(0, Math.min(toIndex, siblings.length - 1))
+    if (from === to) return ok(container)
+
+    siblings.splice(to, 0, ...siblings.splice(from, 1))
+
+    const changed: Record<string, Container> = {}
+    siblings.forEach((sibling, index) => {
+      if (sibling.position !== index)
+        changed[sibling.id] = { ...sibling, position: index }
+    })
+
+    set((current) => ({ containers: { ...current.containers, ...changed } }))
+    return ok(get().containers[containerId])
+  },
 
   updateTask(taskId, patch) {
     const state = get()
@@ -185,6 +334,55 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
     })
 
     set((current) => ({ tasks: { ...current.tasks, ...renumbered } }))
+    return ok(get().tasks[taskId])
+  },
+
+  /*
+    Drops a task into a different column of the same list — the kanban
+    "change status" gesture. Both the column it left and the one it joined are
+    renumbered, so neither is left with a gap or a duplicate position.
+  */
+  moveTaskToStatus(taskId, statusId, toIndex) {
+    const state = get()
+    const task = state.tasks[taskId]
+    if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+
+    const status = state.statuses[statusId]
+    if (!status) return err('NOT_FOUND', 'That status no longer exists.')
+    if (status.listId !== task.primaryListId) {
+      return err('VALIDATION', 'That status belongs to a different list.')
+    }
+    if (task.statusId === statusId) return get().reorderTask(taskId, toIndex)
+
+    const now = new Date().toISOString()
+    const changed: Record<string, Task> = {}
+
+    // Close the gap left behind.
+    Object.values(state.tasks)
+      .filter((other) => other.statusId === task.statusId && other.id !== taskId)
+      .sort((a, b) => a.position - b.position)
+      .forEach((other, index) => {
+        if (other.position !== index) {
+          changed[other.id] = { ...other, position: index, updatedAt: now }
+        }
+      })
+
+    // Insert into the destination and renumber it.
+    const destination = Object.values(state.tasks)
+      .filter((other) => other.statusId === statusId)
+      .sort((a, b) => a.position - b.position)
+    const at = Math.max(0, Math.min(toIndex, destination.length))
+    destination.splice(at, 0, { ...task, statusId })
+
+    destination.forEach((other, index) => {
+      if (other.id === taskId) {
+        changed[taskId] = { ...task, statusId, position: index, updatedAt: now }
+      } else if (other.position !== index) {
+        changed[other.id] = { ...other, position: index, updatedAt: now }
+      }
+    })
+
+    set((current) => ({ tasks: { ...current.tasks, ...changed } }))
     return ok(get().tasks[taskId])
   },
 

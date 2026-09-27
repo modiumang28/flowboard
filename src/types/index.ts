@@ -40,6 +40,14 @@ export const VALID_PARENT_TYPE: Record<ContainerType, ContainerType | null> = {
   list: 'folder',
 }
 
+/** The inverse: what a node may contain. Lists hold tasks, so they contain no container. */
+export const CHILD_TYPE: Record<ContainerType, ContainerType | null> = {
+  workspace: 'space',
+  space: 'folder',
+  folder: 'list',
+  list: null,
+}
+
 // ----------------------------------------------------------------- statuses
 
 /**

@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { seededState, useStore } from '../../store/store'
 import { Sidebar } from './Sidebar'
 
 const renderSidebar = (path = '/list') =>
@@ -11,7 +12,14 @@ const renderSidebar = (path = '/list') =>
     </MemoryRouter>,
   )
 
-describe('Sidebar', () => {
+const containers = () => Object.values(useStore.getState().containers)
+const named = (name: string) => containers().find((c) => c.name === name)
+
+beforeEach(() => {
+  useStore.setState(seededState())
+})
+
+describe('Sidebar — reading the tree', () => {
   it('renders the whole tree expanded', () => {
     renderSidebar()
     for (const name of [
@@ -64,5 +72,131 @@ describe('Sidebar', () => {
 
     expect(names.indexOf('Sprint 1')).toBeLessThan(names.indexOf('Bugs'))
     expect(names.indexOf('Engineering')).toBeLessThan(names.indexOf('Product'))
+  })
+})
+
+describe('Sidebar — creating', () => {
+  it('adds a space under the workspace and opens it for renaming', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Add space to FoodApp' }))
+
+    const input = screen.getByRole('textbox', { name: 'Rename New space' })
+    await user.clear(input)
+    await user.type(input, 'Design{Enter}')
+
+    await waitFor(() => expect(named('Design')?.type).toBe('space'))
+    expect(named('Design')?.parentId).toBe('workspace-foodapp')
+  })
+
+  it('adds a list with its own statuses', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Add list to Mobile App' }))
+
+    const created = named('New list')
+    expect(created).toBeDefined()
+    const statuses = Object.values(useStore.getState().statuses).filter(
+      (s) => s.listId === created!.id,
+    )
+    expect(statuses.map((s) => s.name).sort()).toEqual(['Done', 'In Progress', 'To Do'])
+  })
+
+  it('offers no add button on a list, which holds tasks not containers', () => {
+    renderSidebar()
+    expect(
+      screen.getByRole('button', { name: /Add list to Mobile App/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Add .* to Bugs/ }),
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('Sidebar — renaming', () => {
+  const openRename = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(screen.getByRole('button', { name: `Actions for ${name}` }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+  }
+
+  it('renames from the actions menu', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Bugs' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+
+    const input = screen.getByRole('textbox', { name: 'Rename Bugs' })
+    await user.clear(input)
+    await user.type(input, 'Defects{Enter}')
+
+    await waitFor(() =>
+      expect(useStore.getState().containers['list-bugs'].name).toBe('Defects'),
+    )
+  })
+
+  it('abandons the rename on Escape', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await openRename(user, 'Bugs')
+    await user.clear(screen.getByRole('textbox', { name: 'Rename Bugs' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'Rename Bugs' }),
+      'Defects{Escape}',
+    )
+
+    expect(useStore.getState().containers['list-bugs'].name).toBe('Bugs')
+  })
+
+  it('shows an error for an empty name', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await openRename(user, 'Bugs')
+    await user.clear(screen.getByRole('textbox', { name: 'Rename Bugs' }))
+    await user.type(screen.getByRole('textbox', { name: 'Rename Bugs' }), '{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('A name is required')
+    expect(useStore.getState().containers['list-bugs'].name).toBe('Bugs')
+  })
+})
+
+describe('Sidebar — archiving', () => {
+  it('removes an archived list from the tree', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Bugs' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Bugs' })).not.toBeInTheDocument(),
+    )
+    // Soft delete — the record is still there.
+    expect(useStore.getState().containers['list-bugs'].archivedAt).not.toBeNull()
+  })
+
+  it('takes the whole subtree with it', async () => {
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Product' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Product' })).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByRole('button', { name: 'Roadmap' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Q3 Features' })).not.toBeInTheDocument()
+  })
+
+  it('offers no archive action on the workspace', () => {
+    renderSidebar()
+    expect(
+      screen.queryByRole('button', { name: 'Actions for FoodApp' }),
+    ).not.toBeInTheDocument()
   })
 })
