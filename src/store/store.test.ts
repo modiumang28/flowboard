@@ -165,6 +165,164 @@ describe('reorderContainer', () => {
   })
 })
 
+describe('createTask', () => {
+  const inColumn = (statusId: string) =>
+    Object.values(store().tasks)
+      .filter((t) => t.statusId === statusId)
+      .sort((a, b) => a.position - b.position)
+      .map((t) => t.title)
+
+  it('creates a task at the bottom of its column', () => {
+    const result = store().createTask('list-sprint-1', {
+      statusId: 'status-sprint-1-todo',
+      title: 'Ship it',
+    })
+
+    expect(isError(result)).toBe(false)
+    expect(inColumn('status-sprint-1-todo').at(-1)).toBe('Ship it')
+  })
+
+  it('fills the rest of the task with sensible empties', () => {
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: 'Crash on load',
+    })
+    if (isError(result)) throw new Error('setup failed')
+
+    expect(result.data).toMatchObject({
+      description: '',
+      priority: 'none',
+      assigneeIds: [],
+      dueDate: null,
+      primaryListId: 'list-bugs',
+      statusId: 'status-bugs-open',
+    })
+    expect(result.data.createdAt).toBe(result.data.updatedAt)
+  })
+
+  it('trims the title', () => {
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: '  Padded  ',
+    })
+    expect(isError(result) ? null : result.data.title).toBe('Padded')
+  })
+
+  it('refuses an empty title', () => {
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: '   ',
+    })
+    expect(result).toEqual({
+      error: { code: 'VALIDATION', message: 'A task needs a title.' },
+    })
+  })
+
+  it('refuses a title over the limit', () => {
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: 'x'.repeat(MAX_TITLE_LENGTH + 1),
+    })
+    expect(isError(result) && result.error.code).toBe('VALIDATION')
+  })
+
+  it('refuses a status belonging to another list', () => {
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-sprint-1-todo',
+      title: 'Nope',
+    })
+    expect(result).toEqual({
+      error: { code: 'VALIDATION', message: 'That status belongs to a different list.' },
+    })
+  })
+
+  it('refuses a target that is not a list', () => {
+    const result = store().createTask('folder-mobile-app', {
+      statusId: 'status-bugs-open',
+      title: 'Nope',
+    })
+    expect(isError(result) && result.error.code).toBe('NOT_FOUND')
+  })
+
+  it('refuses an archived list', () => {
+    store().archiveContainer('list-bugs')
+    const result = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: 'Nope',
+    })
+    expect(isError(result) && result.error.code).toBe('NOT_FOUND')
+  })
+
+  it('gives each task a distinct id', () => {
+    const a = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: 'One',
+    })
+    const b = store().createTask('list-bugs', {
+      statusId: 'status-bugs-open',
+      title: 'Two',
+    })
+    expect(isError(a) || isError(b)).toBe(false)
+    if (!isError(a) && !isError(b)) expect(a.data.id).not.toBe(b.data.id)
+  })
+
+  it('never leaves two tasks sharing a position', () => {
+    store().createTask('list-bugs', { statusId: 'status-bugs-open', title: 'One' })
+    store().createTask('list-bugs', { statusId: 'status-bugs-open', title: 'Two' })
+
+    const seen = new Set<string>()
+    for (const t of Object.values(store().tasks)) {
+      const key = `${t.statusId}:${t.position}`
+      expect(seen.has(key)).toBe(false)
+      seen.add(key)
+    }
+  })
+})
+
+describe('deleteTask', () => {
+  it('removes the task outright', () => {
+    const result = store().deleteTask('task-fix-crash')
+    expect(isError(result)).toBe(false)
+    expect(store().tasks['task-fix-crash']).toBeUndefined()
+  })
+
+  it('closes the gap in its column', () => {
+    // Bugs / Open holds two tasks at positions 0 and 1.
+    store().deleteTask('task-fix-crash')
+
+    const positions = Object.values(store().tasks)
+      .filter((t) => t.statusId === 'status-bugs-open')
+      .map((t) => t.position)
+    expect(positions).toEqual([0])
+  })
+
+  it('leaves other columns alone', () => {
+    const before = Object.values(store().tasks)
+      .filter((t) => t.statusId === 'status-bugs-triaging')
+      .map((t) => `${t.id}:${t.position}`)
+      .sort()
+
+    store().deleteTask('task-fix-crash')
+
+    const after = Object.values(store().tasks)
+      .filter((t) => t.statusId === 'status-bugs-triaging')
+      .map((t) => `${t.id}:${t.position}`)
+      .sort()
+    expect(after).toEqual(before)
+  })
+
+  it('leaves containers and statuses untouched', () => {
+    store().deleteTask('task-fix-crash')
+    expect(store().containers['list-bugs']).toBeDefined()
+    expect(store().statuses['status-bugs-open']).toBeDefined()
+  })
+
+  it('reports an unknown task as NOT_FOUND', () => {
+    const result = store().deleteTask('task-nope')
+    expect(isError(result) && result.error.code).toBe('NOT_FOUND')
+  })
+})
+
 describe('updateTask', () => {
   it('applies a patch and bumps updatedAt', () => {
     const before = task('task-fix-crash').updatedAt

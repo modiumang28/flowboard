@@ -1,8 +1,9 @@
-import { ChevronRight } from 'lucide-react'
-import { useMemo } from 'react'
+import { ChevronRight, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useMatch } from 'react-router-dom'
 import { useStore } from '../../store/store'
 import { ancestorsOf } from '../../store/tree'
+import { CreateTaskDialog } from '../task/CreateTaskDialog'
 import { UserSwitcher } from './UserSwitcher'
 import { ViewToggle } from './ViewToggle'
 
@@ -14,6 +15,8 @@ import { ViewToggle } from './ViewToggle'
 export function TopBar() {
   const containers = useStore((state) => state.containers)
   const listId = useMatch('/list/:listId')?.params.listId ?? null
+
+  const [isCreating, setIsCreating] = useState(false)
 
   const trail = useMemo(
     () => (listId ? ancestorsOf(containers, listId) : []),
@@ -49,10 +52,26 @@ export function TopBar() {
         )}
       </nav>
 
-      {/* Only meaningful once a list is open. */}
-      {listId && <ViewToggle />}
+      {/* Both only mean anything once a list is open. */}
+      {listId && (
+        <>
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-card bg-brand px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          >
+            <Plus size={14} />
+            Create
+          </button>
+          <ViewToggle />
+        </>
+      )}
 
       <UserSwitcher />
+
+      {listId && isCreating && (
+        <CreateTaskDialog listId={listId} onClose={() => setIsCreating(false)} />
+      )}
     </header>
   )
 }

@@ -14,6 +14,7 @@ import {
   type Container,
   type ContainerType,
   type Grant,
+  type Priority,
   type Status,
   type StatusCategory,
   type Task,
@@ -49,6 +50,16 @@ export type TaskPatch = Partial<
   >
 >
 
+/** Everything a new task can carry. Only a title and a status are required. */
+export interface NewTask {
+  title: string
+  statusId: string
+  description?: string
+  priority?: Priority
+  assigneeIds?: string[]
+  dueDate?: string | null
+}
+
 export interface StoreActions {
   createContainer: (
     parentId: string,
@@ -58,6 +69,8 @@ export interface StoreActions {
   renameContainer: (containerId: string, name: string) => Result<Container>
   archiveContainer: (containerId: string) => Result<Container>
   reorderContainer: (containerId: string, toIndex: number) => Result<Container>
+  createTask: (listId: string, draft: NewTask) => Result<Task>
+  deleteTask: (taskId: string) => Result<Task>
   updateTask: (taskId: string, patch: TaskPatch) => Result<Task>
   moveTaskToList: (taskId: string, listId: string) => Result<Task>
   reorderTask: (taskId: string, toIndex: number) => Result<Task>
@@ -225,6 +238,85 @@ export const useStore = create<StoreState & StoreActions>()((set, get) => ({
 
     set((current) => ({ containers: { ...current.containers, ...changed } }))
     return ok(get().containers[containerId])
+  },
+
+  /*
+    Everything the create form collects arrives in one call, so a new task is
+    a single mutation with a single timestamp rather than a create followed by
+    an edit. Only the title and status are required; the rest default to the
+    same empty values an existing task would have.
+  */
+  createTask(listId, draft) {
+    const state = get()
+    const { statusId } = draft
+
+    const trimmed = draft.title.trim()
+    if (trimmed.length === 0) return err('VALIDATION', 'A task needs a title.')
+    if (trimmed.length > MAX_TITLE_LENGTH) {
+      return err('VALIDATION', `Titles are limited to ${MAX_TITLE_LENGTH} characters.`)
+    }
+
+    const list = state.containers[listId]
+    if (!list || list.type !== 'list')
+      return err('NOT_FOUND', 'That list no longer exists.')
+    if (list.archivedAt) return err('NOT_FOUND', 'That list has been deleted.')
+
+    const status = state.statuses[statusId]
+    if (!status) return err('NOT_FOUND', 'That status no longer exists.')
+    if (status.listId !== listId) {
+      return err('VALIDATION', 'That status belongs to a different list.')
+    }
+
+    const unknownAssignee = draft.assigneeIds?.find((id) => !state.users[id])
+    if (unknownAssignee) return err('NOT_FOUND', 'That user no longer exists.')
+
+    const now = new Date().toISOString()
+    const task: Task = {
+      id: crypto.randomUUID(),
+      title: trimmed,
+      description: draft.description?.trim() ?? '',
+      primaryListId: listId,
+      statusId,
+      priority: draft.priority ?? 'none',
+      assigneeIds: draft.assigneeIds ?? [],
+      dueDate: draft.dueDate ?? null,
+      position: nextPosition(state.tasks, statusId),
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    set((current) => ({ tasks: { ...current.tasks, [task.id]: task } }))
+    return ok(task)
+  },
+
+  /*
+    Tasks are removed outright, unlike containers. The brief asks for
+    soft-delete on the hierarchy, where losing a branch would take its tasks
+    with it; a single task has nothing hanging off it, so a real delete is the
+    honest behaviour. The column is renumbered so no gap is left behind.
+  */
+  deleteTask(taskId) {
+    const state = get()
+    const task = state.tasks[taskId]
+    if (!task) return err('NOT_FOUND', 'That task no longer exists.')
+
+    const now = new Date().toISOString()
+    const remaining: Record<string, Task> = {}
+    for (const [id, other] of Object.entries(state.tasks)) {
+      if (id !== taskId) remaining[id] = other
+    }
+
+    Object.values(remaining)
+      .filter((other) => other.statusId === task.statusId)
+      .sort((a, b) => a.position - b.position)
+      .forEach((other, index) => {
+        if (other.position !== index) {
+          remaining[other.id] = { ...other, position: index, updatedAt: now }
+        }
+      })
+
+    set({ tasks: remaining })
+    return ok(task)
   },
 
   updateTask(taskId, patch) {

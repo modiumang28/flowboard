@@ -99,11 +99,13 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
   const users = useStore((state) => state.users)
   const updateTask = useStore((state) => state.updateTask)
   const moveTaskToList = useStore((state) => state.moveTaskToList)
+  const deleteTask = useStore((state) => state.deleteTask)
 
   // Seeded once per mount. TaskDrawer keys this component by task id, so
   // opening a different task starts a fresh draft without an effect.
   const [draft, setDraft] = useState<Draft>(() => draftFrom(task))
   const [error, setError] = useState<string | null>(null)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
   const listChanged = draft.primaryListId !== task.primaryListId
 
@@ -324,28 +326,63 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
         </dl>
       </div>
 
+      {/*
+        Deleting asks once, in place. A second dialog on top of this one would
+        mean two focus traps competing, for a question that fits in the footer.
+      */}
       <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-        {isDirty && (
-          <span className="mr-auto text-xs text-slate-500">Unsaved changes</span>
+        {isConfirmingDelete ? (
+          <>
+            <span className="mr-auto text-xs text-slate-600">Delete this task?</span>
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDelete(false)}
+              className="cursor-pointer rounded-card border border-line px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+            >
+              Keep
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const result = deleteTask(task.id)
+                if (isError(result)) setError(result.error.message)
+                else onClose()
+              }}
+              className="cursor-pointer rounded-card bg-accent-red px-3 py-1.5 text-sm font-medium text-white transition hover:bg-accent-red/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+            >
+              Delete
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsConfirmingDelete(true)}
+              className="mr-auto cursor-pointer rounded-card px-2 py-1.5 text-sm text-accent-red transition hover:bg-accent-red/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+            >
+              Delete
+            </button>
+            {isDirty && <span className="text-xs text-slate-500">Unsaved changes</span>}
+            <button
+              type="button"
+              onClick={() => {
+                discard()
+                onClose()
+              }}
+              className="cursor-pointer rounded-card border border-line px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!isDirty}
+              className="cursor-pointer rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Save
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            discard()
-            onClose()
-          }}
-          className="cursor-pointer rounded-card border border-line px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          disabled={!isDirty}
-          className="cursor-pointer rounded-card bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Save
-        </button>
       </div>
     </>
   )

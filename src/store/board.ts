@@ -11,6 +11,25 @@ export interface BoardColumnData {
   tasks: Task[]
 }
 
+/** A list's own statuses, left to right. */
+export function statusesForList(statuses: Status[], listId: string): Status[] {
+  return statuses
+    .filter((status) => status.listId === listId)
+    .sort((a, b) => a.position - b.position)
+}
+
+/**
+ * Where a new task starts: the list's first not-started column.
+ *
+ * Matched on category rather than position, because a list can be reordered
+ * and because the column is not always called "To Do" — Bugs calls it "Open".
+ * Falls back to the leftmost column if a list somehow has no todo status.
+ */
+export function defaultStatusFor(statuses: Status[], listId: string): Status | undefined {
+  const columns = statusesForList(statuses, listId)
+  return columns.find((status) => status.category === 'todo') ?? columns[0]
+}
+
 /**
  * Columns for one list, ordered left to right, each holding that column's
  * tasks in position order.
@@ -23,9 +42,7 @@ export function buildBoard(
   tasks: Task[],
   listId: string,
 ): BoardColumnData[] {
-  const columns = statuses
-    .filter((status) => status.listId === listId)
-    .sort((a, b) => a.position - b.position)
+  const columns = statusesForList(statuses, listId)
 
   const tasksByStatus = new Map<string, Task[]>()
   for (const task of tasks) {
