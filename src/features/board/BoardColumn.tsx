@@ -1,4 +1,5 @@
 import { useDroppable } from '@dnd-kit/core'
+import { Fragment } from 'react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ACCENT_FILL } from '../../lib/accents'
 import type { BoardColumnData } from '../../store/board'
@@ -14,9 +15,26 @@ interface Props {
     over one of the cards inside instead of the column itself.
   */
   isDropTarget: boolean
+  /** Index a card arriving from another column would land at; -1 for none. */
+  insertAt: number
 }
 
-export function BoardColumn({ column, users, isDropTarget }: Props) {
+/*
+  A card-shaped gap standing in for the one being dragged, so the space it
+  would occupy is visible rather than just the seam it would slide into.
+  Height is fixed rather than measured from the dragged card — close enough to
+  read as "a card goes here", without tracking sizes through the drag.
+*/
+function DropPlaceholder() {
+  return (
+    <div
+      aria-hidden
+      className="h-[4.25rem] shrink-0 rounded-card border-2 border-dashed border-brand/40 bg-brand/5"
+    />
+  )
+}
+
+export function BoardColumn({ column, users, isDropTarget, insertAt }: Props) {
   const { status, tasks } = column
 
   // Registered under the status id, so an empty column is still a valid target.
@@ -44,8 +62,11 @@ export function BoardColumn({ column, users, isDropTarget }: Props) {
           strategy={verticalListSortingStrategy}
         >
           {tasks.length > 0 ? (
-            tasks.map((task) => (
-              <SortableTaskCard key={task.id} task={task} users={users} />
+            tasks.map((task, index) => (
+              <Fragment key={task.id}>
+                {insertAt === index && <DropPlaceholder />}
+                <SortableTaskCard task={task} users={users} />
+              </Fragment>
             ))
           ) : (
             <p
@@ -56,6 +77,7 @@ export function BoardColumn({ column, users, isDropTarget }: Props) {
               {isDropTarget ? 'Drop here' : 'No tasks'}
             </p>
           )}
+          {tasks.length > 0 && insertAt >= tasks.length && <DropPlaceholder />}
         </SortableContext>
       </div>
     </section>

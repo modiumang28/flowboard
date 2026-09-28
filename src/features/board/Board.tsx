@@ -10,7 +10,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useMemo, useState } from 'react'
-import { buildBoard, type BoardColumnData } from '../../store/board'
+import { buildBoard, resolveBoardDrop } from '../../store/board'
 import { BoardSkeleton } from '../../components/Skeleton'
 import { useStore } from '../../store/store'
 import { notifyOnError } from '../../store/toasts'
@@ -26,7 +26,17 @@ export function Board({ listId }: { listId: string }) {
   const moveTaskToStatus = useStore((state) => state.moveTaskToStatus)
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [overStatusId, setOverStatusId] = useState<string | null>(null)
+  /*
+    Where the card would land, tracked during the drag. Within a column the
+    sorting strategy already opens a gap, but a card dragged in from another
+    column is not part of that column's SortableContext, so nothing shifts —
+    the target column knows nothing is coming. This drives an insertion line
+    so a cross-column drop says where, not just which column.
+  */
+  const [dropTarget, setDropTarget] = useState<{
+    statusId: string
+    index: number
+  } | null>(null)
 
   const columns = useMemo(
     () => buildBoard(Object.values(statuses), Object.values(tasks), listId),
@@ -43,35 +53,14 @@ export function Board({ listId }: { listId: string }) {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
-  /*
-    A drop target is either a column (dropped on empty space, id = status id)
-    or a card (dropped between cards, id = task id). Resolve both to the column
-    that would receive the task, and the index it would land at.
-  */
-  const resolveDrop = (
-    overId: string,
-  ): { column: BoardColumnData; index: number } | null => {
-    const asColumn = columns.find((column) => column.status.id === overId)
-    if (asColumn) return { column: asColumn, index: asColumn.tasks.length }
-
-    const asCard = columns.find((column) =>
-      column.tasks.some((task) => task.id === overId),
-    )
-    if (!asCard) return null
-    return { column: asCard, index: asCard.tasks.findIndex((t) => t.id === overId) }
-  }
-
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setDraggingId(null)
-    setOverStatusId(null)
+    setDropTarget(null)
     if (!over) return
 
     const taskId = String(active.id)
-    const target = resolveDrop(String(over.id))
-    const source = columns.find((column) =>
-      column.tasks.some((task) => task.id === taskId),
-    )
-    if (!target || !source) return
+    const drop = resolveBoardDrop(columns, taskId, String(over.id))
+    if (!drop) return
 
     /*
       A drop has nowhere to show an inline error once the pointer is released,
@@ -81,12 +70,12 @@ export function Board({ listId }: { listId: string }) {
       one. It becomes reachable as soon as a permission check or a real backend
       can say no.
     */
-    if (source.status.id === target.column.status.id) {
+    if (drop.sameColumn) {
       if (active.id === over.id) return
-      notifyOnError(reorderTask(taskId, target.index))
+      notifyOnError(reorderTask(taskId, drop.index))
     } else {
       // Across columns, the gesture means "change status".
-      notifyOnError(moveTaskToStatus(taskId, target.column.status.id, target.index))
+      notifyOnError(moveTaskToStatus(taskId, drop.statusId, drop.index))
     }
   }
 
@@ -119,15 +108,26 @@ export function Board({ listId }: { listId: string }) {
       */
       collisionDetection={pointerWithin}
       onDragStart={({ active }: DragStartEvent) => setDraggingId(String(active.id))}
-      onDragOver={({ over }: DragOverEvent) =>
-        setOverStatusId(
-          over ? (resolveDrop(String(over.id))?.column.status.id ?? null) : null,
-        )
-      }
+      onDragOver={({ active, over }: DragOverEvent) => {
+        const drop = over
+          ? resolveBoardDrop(columns, String(active.id), String(over.id))
+          : null
+        if (!drop) return setDropTarget(null)
+
+        /*
+          Within the source column the sorting strategy already opens a real
+          gap, so a placeholder there would double up. Only a card arriving
+          from elsewhere needs one — hence index -1 to suppress it.
+        */
+        setDropTarget({
+          statusId: drop.statusId,
+          index: drop.sameColumn ? -1 : drop.index,
+        })
+      }}
       onDragEnd={handleDragEnd}
       onDragCancel={() => {
         setDraggingId(null)
-        setOverStatusId(null)
+        setDropTarget(null)
       }}
     >
       <div className="flex h-full gap-3 overflow-x-auto px-6 pb-6">
@@ -136,7 +136,10 @@ export function Board({ listId }: { listId: string }) {
             key={column.status.id}
             column={column}
             users={userList}
-            isDropTarget={draggingId !== null && overStatusId === column.status.id}
+            isDropTarget={
+              draggingId !== null && dropTarget?.statusId === column.status.id
+            }
+            insertAt={dropTarget?.statusId === column.status.id ? dropTarget.index : -1}
           />
         ))}
       </div>

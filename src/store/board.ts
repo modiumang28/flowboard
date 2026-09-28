@@ -57,3 +57,50 @@ export function buildBoard(
     tasks: (tasksByStatus.get(status.id) ?? []).sort((a, b) => a.position - b.position),
   }))
 }
+
+/**
+ * What a board drag would do, were it released now.
+ *
+ * dnd-kit reports whichever droppable the pointer is over: a card when the
+ * pointer is between cards, or the column itself when it is over empty space
+ * below them. Both resolve to the same answer — a column and an index — so
+ * the two callers (the live preview and the drop itself) cannot disagree
+ * about where a card is going.
+ *
+ * Returns null when either id is unknown, which is how a drag that started
+ * outside the board is ignored.
+ */
+export interface BoardDrop {
+  statusId: string
+  /** Position within that column the task would take. */
+  index: number
+  /** True when the card has not left the column it started in. */
+  sameColumn: boolean
+}
+
+export function resolveBoardDrop(
+  columns: BoardColumnData[],
+  activeId: string,
+  overId: string,
+): BoardDrop | null {
+  const source = columns.find((column) =>
+    column.tasks.some((task) => task.id === activeId),
+  )
+  if (!source) return null
+
+  // Over the column's empty space: the card lands at the end.
+  const asColumn = columns.find((column) => column.status.id === overId)
+  const target =
+    asColumn ?? columns.find((column) => column.tasks.some((task) => task.id === overId))
+  if (!target) return null
+
+  const index = asColumn
+    ? asColumn.tasks.length
+    : target.tasks.findIndex((task) => task.id === overId)
+
+  return {
+    statusId: target.status.id,
+    index,
+    sameColumn: source.status.id === target.status.id,
+  }
+}
