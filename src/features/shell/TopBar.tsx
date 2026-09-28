@@ -5,6 +5,7 @@ import { listAccess } from '../../store/permissions'
 import { useStore } from '../../store/store'
 import { ancestorsOf } from '../../store/tree'
 import { CreateTaskDialog } from '../task/CreateTaskDialog'
+import { TaskSearch } from './TaskSearch'
 import { UserSwitcher } from './UserSwitcher'
 import { ViewToggle } from './ViewToggle'
 
@@ -36,7 +37,7 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-white px-5">
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 shrink">
         {trail.length > 0 ? (
           <ol className="flex min-w-0 items-center gap-1 text-sm">
             {trail.map((container, index) => {
@@ -63,7 +64,10 @@ export function TopBar() {
         )}
       </nav>
 
-      {/* Both only mean anything once a reachable list is open. */}
+      {/* Search spans the workspace, so it does not depend on a list being open. */}
+      <TaskSearch />
+
+      {/* These two only mean anything once a reachable list is open. */}
       {isOpen && (
         <>
           <button
