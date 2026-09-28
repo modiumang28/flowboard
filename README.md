@@ -4,7 +4,7 @@ A mini project-management app for a single workspace — a container hierarchy,
 a kanban board, a list view, and a permission model — with no backend. State
 lives in a typed client store seeded from fixtures.
 
-**Live demo:** [flowboard-modiumang28.vercel.app](https://flowboard-modiumang28.vercel.app)
+**Live demo:** [flowboard-black-gamma.vercel.app](https://flowboard-black-gamma.vercel.app)
 
 ---
 
@@ -417,7 +417,7 @@ The brief caps these at two, so the MVP was finished first and these were
 chosen last, on the grounds that both could be completed rather than started.
 
 **1 · Deployed preview (Vercel).** Live at
-[flowboard-modiumang28.vercel.app](https://flowboard-modiumang28.vercel.app), redeploying on every push to `main`.
+[flowboard-black-gamma.vercel.app](https://flowboard-black-gamma.vercel.app), redeploying on every push to `main`.
 Worth noting that a Vite SPA needs an explicit rewrite to
 survive a refresh: `/list/list-bugs` has no file behind it, so without
 `vercel.json` the server 404s before the router ever loads. Real files are
