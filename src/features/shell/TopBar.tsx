@@ -16,6 +16,7 @@ import { ViewToggle } from './ViewToggle'
 */
 export function TopBar() {
   const containers = useStore((state) => state.containers)
+  const currentUserId = useStore((state) => state.currentUserId)
   const listId = useMatch('/list/:listId')?.params.listId ?? null
 
   /*
@@ -64,8 +65,14 @@ export function TopBar() {
         )}
       </nav>
 
-      {/* Search spans the workspace, so it does not depend on a list being open. */}
-      <TaskSearch />
+      {/*
+        Search spans the workspace, so it does not depend on a list being open.
+
+        Keyed on the user: results are permission-scoped, so the same words
+        mean a different set of tasks for each identity. Remounting clears the
+        query rather than leaving one person's search sitting in another's box.
+      */}
+      <TaskSearch key={currentUserId} />
 
       {/* These two only mean anything once a reachable list is open. */}
       {isOpen && (

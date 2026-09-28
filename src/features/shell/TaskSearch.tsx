@@ -75,6 +75,12 @@ export function TaskSearch() {
       {hasQuery && (
         <ComboboxOptions
           anchor="bottom start"
+          /*
+            Headless UI marks the rest of the page inert while the list is
+            open, which is right for a dialog but wrong here — it also blocks
+            the clear button sitting inside the input the user is typing in.
+          */
+          modal={false}
           className="z-50 mt-1 w-96 rounded-panel border border-line bg-white p-1 shadow-pop [--anchor-gap:4px] empty:hidden focus:outline-none"
         >
           {results.length === 0 ? (

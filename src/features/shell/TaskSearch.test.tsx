@@ -107,40 +107,58 @@ describe('Searching tasks', () => {
     await type(user, 'checkout')
 
     /*
-      Headless UI marks everything outside the open listbox aria-hidden, so
-      this button is intentionally out of the accessibility tree while results
-      are showing — keyboard users dismiss with Escape instead. It is still a
-      real, clickable control, hence `hidden: true`.
+      Reachable even with the results open. Headless UI's default is to mark
+      everything outside the listbox inert, which would take this button with
+      it — `modal={false}` on the options keeps the input's own controls live.
+      Finding it by role is the assertion: an inert button is not in the
+      accessibility tree, so this query would fail if the default came back.
     */
-    const clear = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Clear search"]',
-    )!
-    await user.click(clear)
+    expect(await screen.findByRole('listbox')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Clear search' }))
 
     expect(search()).toHaveValue('')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('clears the query when the user is switched', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await type(user, 'checkout')
+    expect(search()).toHaveValue('checkout')
+
+    // Results are permission-scoped, so a new identity starts a new search.
+    useStore.getState().setCurrentUser('user-bob')
+
+    await waitFor(() => expect(search()).toHaveValue(''))
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
 
 describe('Search respects permissions', () => {
+  // "checkout" matches two tasks: one in Bugs, one in Sprint 1.
+  it('finds both for an admin who can reach either list', async () => {
+    const user = userEvent.setup()
+    renderApp() // Alice, admin.
+
+    await type(user, 'checkout')
+
+    const found = (await results()).map((r) => r.textContent)
+    expect(found.some((t) => t?.includes('Fix crash on checkout'))).toBe(true)
+    expect(found.some((t) => t?.includes('Add checkout flow'))).toBe(true)
+  })
+
   it('hides a task in a list the user is denied, but keeps the rest', async () => {
     const user = userEvent.setup()
+    useStore.getState().setCurrentUser('user-bob')
     renderApp()
 
-    // "checkout" matches two tasks: one in Sprint 1, one in Bugs.
     await type(user, 'checkout')
-    const asAlice = (await results()).map((r) => r.textContent)
-    expect(asAlice.some((t) => t?.includes('Fix crash on checkout'))).toBe(true)
-    expect(asAlice.some((t) => t?.includes('Add checkout flow'))).toBe(true)
 
-    useStore.getState().setCurrentUser('user-bob')
-
-    await waitFor(async () => {
-      const asBob = (await results()).map((r) => r.textContent)
-      // Bugs is denied to Bob; Sprint 1 is not.
-      expect(asBob.some((t) => t?.includes('Fix crash on checkout'))).toBe(false)
-      expect(asBob.some((t) => t?.includes('Add checkout flow'))).toBe(true)
-    })
+    // Bugs is denied to Bob; Sprint 1 is not.
+    const found = (await results()).map((r) => r.textContent)
+    expect(found.some((t) => t?.includes('Fix crash on checkout'))).toBe(false)
+    expect(found.some((t) => t?.includes('Add checkout flow'))).toBe(true)
   })
 
   it('hides a task behind a private ancestor', async () => {
